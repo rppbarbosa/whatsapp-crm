@@ -1,0 +1,261 @@
+{
+  "generatedAt": "2025-08-06T01:14:07.349Z",
+  "summary": {
+    "totalTables": 16,
+    "usedTables": 16,
+    "unusedTables": 0,
+    "emptyTables": 14,
+    "tablesWithData": 2
+  },
+  "usedTables": [
+    {
+      "name": "active_conversations",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "test-complete-fix.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "activity_logs",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "ai_configs",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 1,
+      "hasError": false
+    },
+    {
+      "name": "auto_responses",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "conversion_metrics",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "customers",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "create-conversations-view.js",
+        "seed-dashboard-data.js",
+        "seed-kanban-data.js",
+        "src\\controllers\\customerController.js",
+        "src\\routes\\conversations.js",
+        "src\\routes\\customers.js",
+        "src\\server.js",
+        "src\\services\\whatsappCompatibility.js",
+        "test-supabase.js",
+        "test-whatsapp-integration.js",
+        "frontend\\src\\services\\api.ts"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "leads",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "check-leads-table.js",
+        "create-conversations-view.js",
+        "debug-leads.js",
+        "insert-test-data.js",
+        "seed-dashboard-data.js",
+        "seed-kanban-data.js",
+        "src\\routes\\conversations.js",
+        "src\\routes\\leads.js",
+        "src\\server.js",
+        "src\\services\\whatsappCompatibility.js",
+        "test-kanban-apis.js",
+        "test-leads-api.js",
+        "test-supabase.js",
+        "test-whatsapp-integration.js",
+        "update-company-to-campaign.js",
+        "frontend\\src\\App.tsx",
+        "frontend\\src\\components\\Layout\\Sidebar.tsx",
+        "frontend\\src\\pages\\Conversations.tsx",
+        "frontend\\src\\pages\\Dashboard.tsx",
+        "frontend\\src\\pages\\Leads.tsx",
+        "frontend\\src\\pages\\Reports.tsx",
+        "frontend\\src\\services\\api.ts"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "leads_dashboard",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "src\\routes\\leads.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "metrics",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "src\\services\\evolutionApi.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "pipeline_activities",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "profiles",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "whatsapp_contact_relationships",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "src\\services\\whatsappCompatibility.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "whatsapp_contacts",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "analyze-table-usage.js",
+        "src\\services\\evolutionApi.js",
+        "src\\services\\whatsappNativeService.js",
+        "src\\services\\whatsappService.js",
+        "test-complete-fix.js",
+        "test-contacts-improvements.js",
+        "test-simple-contacts.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "whatsapp_crm_relationships",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "src\\services\\whatsappNativeService.js",
+        "src\\services\\whatsappService.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    },
+    {
+      "name": "whatsapp_instances",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "analyze-table-usage.js",
+        "debug-instances.js",
+        "fix-whatsapp-instances-table.js",
+        "force-update-instance.js",
+        "src\\services\\evolutionApi.js",
+        "src\\services\\whatsappCompatibility.js",
+        "src\\services\\whatsappService.js",
+        "test-complete-fix.js",
+        "test-supabase.js"
+      ],
+      "dataCount": 2,
+      "hasError": false
+    },
+    {
+      "name": "whatsapp_messages",
+      "files": [
+        "analyze-table-usage-fixed.js",
+        "analyze-table-usage.js",
+        "src\\services\\evolutionApi.js",
+        "src\\services\\whatsappNativeService.js",
+        "src\\services\\whatsappService.js",
+        "test-complete-fix.js"
+      ],
+      "dataCount": 0,
+      "hasError": false
+    }
+  ],
+  "unusedTables": [],
+  "emptyTables": [
+    "active_conversations",
+    "activity_logs",
+    "auto_responses",
+    "conversion_metrics",
+    "customers",
+    "leads",
+    "leads_dashboard",
+    "metrics",
+    "pipeline_activities",
+    "profiles",
+    "whatsapp_contact_relationships",
+    "whatsapp_contacts",
+    "whatsapp_crm_relationships",
+    "whatsapp_messages"
+  ],
+  "tablesWithData": [
+    {
+      "name": "ai_configs",
+      "count": 1
+    },
+    {
+      "name": "whatsapp_instances",
+      "count": 2
+    }
+  ],
+  "categories": {
+    "WhatsApp": [
+      "whatsapp_contacts",
+      "whatsapp_messages",
+      "whatsapp_instances",
+      "whatsapp_crm_relationships",
+      "whatsapp_contact_relationships"
+    ],
+    "CRM": [
+      "leads",
+      "customers",
+      "pipeline_activities",
+      "leads_dashboard"
+    ],
+    "Analytics": [
+      "metrics",
+      "conversion_metrics",
+      "activity_logs"
+    ],
+    "System": [
+      "profiles",
+      "ai_configs",
+      "auto_responses",
+      "active_conversations"
+    ]
+  }
+}

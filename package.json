@@ -1,0 +1,33 @@
+{
+  "name": "whatsapp-crm",
+  "version": "1.0.0",
+  "description": "Sistema completo de CRM para WhatsApp com integração Evolution API e Supabase",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm run dev",
+    "start:frontend": "cd frontend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:supabase": "cd backend && npm run test:supabase",
+    "test:integration": "node test-integration.js",
+    "setup": "chmod +x setup-supabase.sh && ./setup-supabase.sh"
+  },
+  "keywords": [
+    "whatsapp",
+    "crm",
+    "evolution-api",
+    "supabase",
+    "react",
+    "nodejs",
+    "typescript"
+  ],
+  "author": "WhatsApp CRM Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
