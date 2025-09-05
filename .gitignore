@@ -90,6 +90,16 @@ jspm_packages/
 sessions/
 *.session.json
 
+# WPPConnect & Chrome session data (SECURITY: Contains API keys and tokens)
+backend/auth_info/
+backend/tokens/
+backend/.wwebjs_auth/
+**/*session*/
+**/*.ldb
+**/*.old
+**/DevToolsActivePort
+**/shared_proto_db/
+
 # Uploads
 uploads/
 temp/
