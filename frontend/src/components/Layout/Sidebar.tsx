@@ -1,24 +1,24 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  HomeIcon, 
-  UsersIcon, 
-  ChatBubbleLeftRightIcon, 
-  PhoneIcon,
-  Cog6ToothIcon,
-  ChartBarIcon,
-  WrenchScrewdriverIcon
-} from '@heroicons/react/24/outline';
+  Home, 
+  Users, 
+  MessageCircle, 
+  Phone,
+  Settings,
+  BarChart3,
+  Wrench
+} from 'lucide-react';
 import clsx from 'clsx';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Leads', href: '/leads', icon: UsersIcon },
-  { name: 'Pipeline de Vendas', href: '/conversations', icon: ChatBubbleLeftRightIcon },
-  { name: 'WhatsApp', href: '/whatsapp', icon: PhoneIcon },
-  { name: 'Gerenciar Instâncias', href: '/manager', icon: WrenchScrewdriverIcon },
-  { name: 'Relatórios', href: '/reports', icon: ChartBarIcon },
-  { name: 'Configurações', href: '/settings', icon: Cog6ToothIcon },
+  { name: 'Dashboard', href: '/', icon: Home },
+  { name: 'Leads', href: '/leads', icon: Users },
+  { name: 'Pipeline de Vendas', href: '/conversations', icon: MessageCircle },
+  { name: 'WhatsApp', href: '/whatsapp', icon: Phone },
+  { name: 'Gerenciar Instâncias', href: '/manager', icon: Wrench },
+  { name: 'Relatórios', href: '/reports', icon: BarChart3 },
+  { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -29,7 +29,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 shrink-0 items-center px-6">
         <div className="flex items-center">
-          <PhoneIcon className="h-8 w-8 text-green-500" />
+          <Phone className="h-8 w-8 text-green-500" />
           <span className="ml-2 text-xl font-bold text-white">WhatsApp CRM</span>
         </div>
       </div>

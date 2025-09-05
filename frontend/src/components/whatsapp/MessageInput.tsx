@@ -1,177 +1,86 @@
-import React, { useState, useRef } from 'react';
-import { cn } from '../../utils/cn';
-import { Button } from '../ui/Button';
-import { 
-  PaperAirplaneIcon,
-  PaperClipIcon,
-  FaceSmileIcon,
-  MicrophoneIcon
-} from '@heroicons/react/24/outline';
+import React, { useRef, useEffect } from 'react';
+import { Send, Smile } from 'lucide-react';
 
-export interface MessageInputProps {
-  onSendMessage: (message: string) => void;
-  onSendMedia?: (file: File) => void;
-  onStartRecording?: () => void;
-  onStopRecording?: () => void;
+interface MessageInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSend: () => void;
   placeholder?: string;
   disabled?: boolean;
-  loading?: boolean;
+  showEmojiPicker?: boolean;
+  onToggleEmojiPicker?: () => void;
   className?: string;
+  autoFocus?: boolean;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
-  onSendMessage,
-  onSendMedia,
-  onStartRecording,
-  onStopRecording,
-  placeholder = 'Digite uma mensagem...',
+  value,
+  onChange,
+  onSend,
+  placeholder = "Digite uma mensagem...",
   disabled = false,
-  loading = false,
-  className,
+  showEmojiPicker = false,
+  onToggleEmojiPicker,
+  className = "",
+  autoFocus = false
 }) => {
-  const [message, setMessage] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (message.trim() && !disabled && !loading) {
-      onSendMessage(message.trim());
-      setMessage('');
+  // Auto-resize do textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  };
+  }, [value]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e);
+      onSend();
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onSendMedia) {
-      onSendMedia(file);
+  const handleSend = () => {
+    if (value.trim() && !disabled) {
+      onSend();
     }
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleRecordingToggle = () => {
-    if (isRecording) {
-      onStopRecording?.();
-      setIsRecording(false);
-    } else {
-      onStartRecording?.();
-      setIsRecording(true);
-    }
-  };
-
-  const handleEmojiClick = () => {
-    // TODO: Implementar picker de emojis
-    console.log('Emoji picker not implemented yet');
   };
 
   return (
-    <div className={cn('border-t border-gray-200 bg-white p-4', className)}>
-      <form onSubmit={handleSubmit} className="flex items-end space-x-2">
-        {/* Botão de anexo */}
-        {onSendMedia && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
-            className="flex-shrink-0"
-          >
-            <PaperClipIcon className="w-5 h-5" />
-          </Button>
-        )}
-
-        {/* Input de mensagem */}
-        <div className="flex-1 relative">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={placeholder}
-            disabled={disabled || loading}
-            className={cn(
-              'w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm',
-              'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'min-h-[40px] max-h-32'
-            )}
-            rows={1}
-            style={{
-              minHeight: '40px',
-              maxHeight: '128px',
-            }}
-          />
-        </div>
-
-        {/* Botão de emoji */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={handleEmojiClick}
+    <div className={`flex items-end space-x-2 w-full ${className}`}>
+      <div className="flex-1 relative min-w-0">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          rows={1}
           disabled={disabled}
-          className="flex-shrink-0"
-        >
-          <FaceSmileIcon className="w-5 h-5" />
-        </Button>
-
-        {/* Botão de gravação ou envio */}
-        {message.trim() ? (
-          <Button
-            type="submit"
-            variant="primary"
-            size="icon"
-            disabled={disabled || loading || !message.trim()}
-            loading={loading}
-            className="flex-shrink-0"
-          >
-            <PaperAirplaneIcon className="w-5 h-5" />
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={handleRecordingToggle}
-            disabled={disabled}
-            className={cn(
-              'flex-shrink-0',
-              isRecording && 'text-red-500 bg-red-50'
-            )}
-          >
-            <MicrophoneIcon className="w-5 h-5" />
-          </Button>
-        )}
-      </form>
-
-      {/* Input de arquivo oculto */}
-      {onSendMedia && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-          onChange={handleFileSelect}
-          className="hidden"
+          autoFocus={autoFocus}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ minHeight: '36px', maxHeight: '100px' }}
         />
+      </div>
+
+      {onToggleEmojiPicker && (
+        <button
+          onClick={onToggleEmojiPicker}
+          disabled={disabled}
+          className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Smile className="w-4 h-4" />
+        </button>
       )}
 
-      {/* Indicador de gravação */}
-      {isRecording && (
-        <div className="mt-2 flex items-center space-x-2 text-sm text-red-600">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-          <span>Gravando...</span>
-        </div>
-      )}
+      <button
+        onClick={handleSend}
+        disabled={!value.trim() || disabled}
+        className="p-1.5 bg-green-500 text-white rounded-full hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+      >
+        <Send className="w-4 h-4" />
+      </button>
     </div>
   );
-}; 
+};

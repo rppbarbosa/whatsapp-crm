@@ -1,0 +1,19 @@
+{
+  "watch": ["src/**/*.js"],
+  "ignore": [
+    "node_modules/**/*",
+    "auth_info/**/*",
+    "tokens/**/*",
+    "*.log",
+    "*.tmp",
+    ".env",
+    "test-*",
+    "tests/**/*",
+    "**/*.ldb",
+    "**/*.old",
+    "**/session-*/**/*",
+    "**/whatsapp-crm-session/**/*"
+  ],
+  "ext": "js",
+  "delay": "3000"
+}

@@ -3,12 +3,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
+const http = require('http');
 require('dotenv').config();
 
 // Importar configurações
 const developmentConfig = require('./config/development');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // Middleware de segurança
@@ -70,8 +72,8 @@ app.get('/', (req, res) => {
     endpoints: {
       whatsapp: '/api/whatsapp',
       customers: '/api/customers',
-      conversations: '/api/conversations',
-      ai: '/api/ai'
+      conversations: '/api/conversations'
+      // ai: '/api/ai' // Temporariamente desabilitado
     }
   });
 });
@@ -81,17 +83,37 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// WebSocket desabilitado
+// app.get('/websocket/stats', (req, res) => {
+//   try {
+//     const websocketService = require('./services/websocketService');
+//     const stats = websocketService.getStats();
+//     res.json({
+//       success: true,
+//       data: stats
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: 'Erro ao obter estatísticas do WebSocket'
+//     });
+//   }
+// });
+
 // Importar rotas
-const whatsappRoutes = require('./routes/whatsapp');
+const whatsappWPPConnectRoutes = require('./routes/whatsappWPPConnect');
 const customerRoutes = require('./routes/customers');
-const aiRoutes = require('./routes/ai');
+// const aiRoutes = require('./routes/ai'); // Temporariamente desabilitado
 const leadsRoutes = require('./routes/leads');
+const evolutionChannelRoutes = require('./routes/evolutionChannel');
 
 // Usar rotas
-app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/whatsapp', whatsappWPPConnectRoutes);
 app.use('/api/customers', customerRoutes);
-app.use('/api/ai', aiRoutes);
+// app.use('/api/ai', aiRoutes); // Temporariamente desabilitado
 app.use('/api/leads', leadsRoutes);
+app.use('/api/evolution-channel', evolutionChannelRoutes);
+        app.use('/webhook', evolutionChannelRoutes); // Webhook público para Evolution Channel (conforme documentação oficial)
 
 // Middleware de erro
 app.use((err, req, res, next) => {
@@ -112,8 +134,12 @@ async function initializeApp() {
   try {
     console.log('🚀 Inicializando WhatsApp CRM API...');
     
+    // WebSocket desabilitado - causando instâncias temporárias desnecessárias
+    // const websocketService = require('./services/websocketService');
+    // websocketService.initialize(server);
+    
     // Iniciar servidor
-    app.listen(PORT, async () => {
+    server.listen(PORT, async () => {
       console.log('='.repeat(50));
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
       console.log(`📱 WhatsApp CRM API: http://localhost:${PORT}`);
@@ -128,13 +154,13 @@ async function initializeApp() {
       console.log(`  ⚡ Cache: ⚠️ Em memória`);
       console.log('='.repeat(50));
       
-      // Restaurar instâncias ativas do banco de dados
-      try {
-        const evolutionApiService = require('./services/evolutionApi');
-        await evolutionApiService.restoreActiveInstances();
-      } catch (restoreError) {
-        console.error('❌ Erro ao restaurar instâncias ativas:', restoreError.message);
-      }
+                    // Verificar se o WPPConnect está disponível
+              try {
+                const wppconnectService = require('./services/wppconnectService');
+                console.log('✅ WPPConnect está disponível e funcionando');
+              } catch (healthError) {
+                console.log('⚠️ WPPConnect não está funcionando corretamente');
+              }
     });
   } catch (error) {
     console.error('❌ Erro ao inicializar aplicação:', error);

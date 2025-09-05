@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 import { 
-  PlusIcon, 
-  ChatBubbleLeftRightIcon, 
-  CheckCircleIcon, 
-  ClockIcon, 
-  ExclamationTriangleIcon,
-  EllipsisVerticalIcon,
-  ChatBubbleLeftIcon,
-  PhoneIcon,
-  XMarkIcon,
-  PaperAirplaneIcon
-} from '@heroicons/react/24/outline';
+  Plus, 
+  MessageCircle, 
+  CheckCircle, 
+  Clock, 
+  AlertTriangle,
+  MoreVertical,
+  Phone,
+  X,
+  Send
+} from 'lucide-react';
 import { leadsAPI, conversationsAPI, Lead } from '../services/api';
 import { toast } from 'react-hot-toast';
 
@@ -39,13 +38,13 @@ interface Message {
 }
 
 const columns = {
-  'lead-bruto': { title: 'Lead Bruto', icon: PlusIcon, color: 'bg-gray-100' },
-  'contato-realizado': { title: 'Contato Realizado', icon: ChatBubbleLeftRightIcon, color: 'bg-blue-100' },
-  'qualificado': { title: 'Qualificado', icon: CheckCircleIcon, color: 'bg-yellow-100' },
-  'proposta-enviada': { title: 'Proposta Enviada', icon: ClockIcon, color: 'bg-orange-100' },
-  'follow-up': { title: 'Follow-up', icon: ChatBubbleLeftRightIcon, color: 'bg-purple-100' },
-  'fechado-ganho': { title: 'Fechado (Ganho)', icon: CheckCircleIcon, color: 'bg-green-100' },
-  'fechado-perdido': { title: 'Fechado (Perdido)', icon: ExclamationTriangleIcon, color: 'bg-red-100' }
+  'lead-bruto': { title: 'Lead Bruto', icon: Plus, color: 'bg-gray-100' },
+  'contato-realizado': { title: 'Contato Realizado', icon: MessageCircle, color: 'bg-blue-100' },
+  'qualificado': { title: 'Qualificado', icon: CheckCircle, color: 'bg-yellow-100' },
+  'proposta-enviada': { title: 'Proposta Enviada', icon: Clock, color: 'bg-orange-100' },
+  'follow-up': { title: 'Follow-up', icon: MessageCircle, color: 'bg-purple-100' },
+  'fechado-ganho': { title: 'Fechado (Ganho)', icon: CheckCircle, color: 'bg-green-100' },
+  'fechado-perdido': { title: 'Fechado (Perdido)', icon: AlertTriangle, color: 'bg-red-100' }
 };
 
 export default function Conversations() {
@@ -310,7 +309,7 @@ export default function Conversations() {
           onClick={handleAddLead}
           className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
         >
-          <PlusIcon className="h-5 w-5 mr-2" />
+                     <Plus className="h-5 w-5 mr-2" />
           Novo Lead
         </button>
       </div>
@@ -363,9 +362,9 @@ export default function Conversations() {
                           Alta
                         </span>
                       )}
-                      {item.type === 'conversation' && (
-                        <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-500" />
-                      )}
+                                             {item.type === 'conversation' && (
+                         <MessageCircle className="h-4 w-4 text-blue-500" />
+                       )}
                       
                       {/* Menu de ações */}
                       <div className="relative menu-container">
@@ -376,7 +375,7 @@ export default function Conversations() {
                           }}
                           className="p-1 hover:bg-gray-100 rounded"
                         >
-                          <EllipsisVerticalIcon className="h-4 w-4 text-gray-500" />
+                                                     <MoreVertical className="h-4 w-4 text-gray-500" />
                         </button>
                         
                         {activeMenu === item.id && (
@@ -412,7 +411,7 @@ export default function Conversations() {
                                 }}
                                 className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                               >
-                                <ChatBubbleLeftIcon className="h-4 w-4 mr-2 text-green-500" />
+                                                                 <MessageCircle className="h-4 w-4 mr-2 text-green-500" />
                                 Abrir Conversa
                               </button>
                               
@@ -425,7 +424,7 @@ export default function Conversations() {
                                   }}
                                   className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                                 >
-                                  <PhoneIcon className="h-4 w-4 mr-2 text-blue-500" />
+                                                                     <Phone className="h-4 w-4 mr-2 text-blue-500" />
                                   Ligar
                                 </button>
                               )}
@@ -536,7 +535,7 @@ function ConversationModal({ item, messages, loading, onClose, onSendMessage }: 
                    <>
                      <span>•</span>
                      <span className="flex items-center">
-                       <PhoneIcon className="h-3 w-3 mr-1" />
+                                                        <Phone className="h-3 w-3 mr-1" />
                        {item.phone}
                      </span>
                    </>
@@ -549,7 +548,7 @@ function ConversationModal({ item, messages, loading, onClose, onSendMessage }: 
                onClick={onClose}
                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
              >
-               <XMarkIcon className="h-5 w-5" />
+                                <X className="h-5 w-5" />
              </button>
            </div>
          </div>
@@ -607,7 +606,7 @@ function ConversationModal({ item, messages, loading, onClose, onSendMessage }: 
               disabled={!newMessage.trim()}
               className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <PaperAirplaneIcon className="h-4 w-4" />
+                                 <Send className="h-4 w-4" />
             </button>
           </div>
         </form>

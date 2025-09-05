@@ -1,350 +1,368 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  UsersIcon, 
-  ChatBubbleLeftRightIcon, 
-  PhoneIcon,
-  CurrencyDollarIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  ClockIcon
-} from '@heroicons/react/24/outline';
-import { leadsAPI, whatsappApi } from '../services/api';
-import toast from 'react-hot-toast';
+  Users, 
+  MessageCircle, 
+  BarChart3,
+  GitBranch
+} from 'lucide-react';
+import { whatsappApi } from '../services/api';
 
-interface DashboardStats {
-  totalLeads: number;
-  totalConversations: number;
-  totalInstances: number;
-  activeConversations: number;
-  leadsThisMonth: number;
-  conversationsThisMonth: number;
-  recentActivities: Array<{
-    id: string;
-    type: 'lead' | 'conversation' | 'message' | 'instance';
-    message: string;
-    time: string;
-    timestamp: string;
-  }>;
+// interface Lead {
+//     id: string;
+//   name: string;
+//   email: string;
+//   phone: string;
+//   status: string;
+//   created_at: string;
+//   source: string;
+// }
+
+interface Conversation {
+  contact_id: string;
+  contact_name: string;
+  contact_phone: string;
+  last_message_body: string;
+  last_message_timestamp: number;
+  message_count: number;
+  id: string; // Added for recent conversations display
+  last_message: string; // Added for recent conversations display
+  last_message_time: number; // Added for recent conversations display
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
+  // const [leads, setLeads] = useState<Lead[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [instanceConnected, setInstanceConnected] = useState(false);
+  const [stats, setStats] = useState({
     totalLeads: 0,
     totalConversations: 0,
-    totalInstances: 0,
-    activeConversations: 0,
-    leadsThisMonth: 0,
-    conversationsThisMonth: 0,
-    recentActivities: []
+    messagesToday: 0,
+    conversionRate: 0,
+    leadsThisMonth: 0 // Added for new stats display
   });
-  const [loading, setLoading] = useState(true);
 
-  // Carregar dados do dashboard
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       
-      // Carregar leads
-      const leads = await leadsAPI.getAll();
-      
-      // Carregar conversas (usando WhatsApp API)
-      let conversations: any[] = [];
-      let instances: any[] = [];
+      // Verificar status da instância
       try {
-        // Buscar conversas de todas as instâncias conectadas
-        const instancesResponse = await whatsappApi.getInstances();
-        // A resposta do backend tem estrutura: { success: true, data: instances[] }
-        // instancesResponse.data é a resposta completa do axios
-        // instancesResponse.data.data é o array de instâncias do backend
-        instances = instancesResponse.data?.data || [];
-        
-        for (const instance of instances) {
-          if (instance.status === 'connected') {
-            try {
-              const convResponse = await whatsappApi.getConversations(instance.instance_name);
-              // A resposta do backend tem estrutura: { success: true, data: conversations[] }
-              const convData = convResponse.data?.data || [];
-              if (convData.length > 0) {
-                conversations = conversations.concat(convData);
+        const instanceResponse = await whatsappApi.getInstanceStatus();
+        if (instanceResponse.data.success && instanceResponse.data.instance) {
+          setInstanceConnected(instanceResponse.data.instance.status === 'connected');
+        }
+      } catch (error) {
+        console.log('Status da instância não disponível');
+        setInstanceConnected(false);
+      }
+      
+      // Carregar leads
+      try {
+        const leadsResponse = await whatsappApi.get('/api/leads');
+        if (leadsResponse.data.success) {
+          // setLeads(leadsResponse.data.data || []);
               }
             } catch (error) {
-              console.warn(`Erro ao buscar conversas da instância ${instance.instance_name}:`, error);
-            }
+        console.log('Leads não disponíveis ainda');
+        // setLeads([]);
+      }
+
+      // Carregar conversas
+      try {
+        const conversationsResponse = await whatsappApi.get('/api/whatsapp/instance/conversations');
+        if (conversationsResponse.data.success) {
+          setConversations(conversationsResponse.data.data || []);
+          if (conversationsResponse.data.message) {
+            console.log('ℹ️', conversationsResponse.data.message);
           }
         }
       } catch (error) {
-        console.warn('Erro ao buscar conversas:', error);
+        console.log('Conversas não disponíveis ainda');
+        setConversations([]);
       }
-      
-      // Calcular estatísticas
-      const now = new Date();
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      const leadsThisMonth = leads.filter(lead => 
-        new Date(lead.created_at) >= thisMonth
-      ).length;
-      
-      const conversationsThisMonth = conversations.filter(conv => 
-        new Date(conv.last_message_timestamp * 1000) >= thisMonth
-      ).length;
-      
-      const activeConversations = conversations.length; // Todas as conversas são consideradas ativas
-      
-      // Criar atividades recentes
-      const recentActivities: Array<{
-        id: string;
-        type: 'lead' | 'conversation' | 'message' | 'instance';
-        message: string;
-        time: string;
-        timestamp: string;
-      }> = [];
-      
-      // Adicionar leads recentes
-      const recentLeads = leads
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 3);
-      
-      recentLeads.forEach(lead => {
-        recentActivities.push({
-          id: `lead-${lead.id}`,
-          type: 'lead' as const,
-          message: `Novo lead criado: ${lead.name}`,
-          time: getTimeAgo(lead.created_at),
-          timestamp: lead.created_at
-        });
-      });
-      
-      // Adicionar conversas recentes
-      const recentConversations = conversations
-        .sort((a, b) => b.last_message_timestamp - a.last_message_timestamp)
-        .slice(0, 3);
-      
-      recentConversations.forEach(conv => {
-        const contactName = conv.contact_name || 'Cliente';
-        recentActivities.push({
-          id: `conv-${conv.contact_id}`,
-          type: 'conversation' as const,
-          message: `Conversa com ${contactName}`,
-          time: getTimeAgo(new Date(conv.last_message_timestamp * 1000).toISOString()),
-          timestamp: new Date(conv.last_message_timestamp * 1000).toISOString()
-        });
-      });
-      
-      // Ordenar atividades por timestamp
-      recentActivities.sort((a, b) => 
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      
-      setStats({
-        totalLeads: leads.length,
-        totalConversations: conversations.length,
-        totalInstances: instances.length,
-        activeConversations,
-        leadsThisMonth,
-        conversationsThisMonth,
-        recentActivities: recentActivities.slice(0, 8) // Limitar a 8 atividades
-      });
+
+      // Carregar estatísticas
+      try {
+        const statsResponse = await whatsappApi.get('/api/whatsapp/instance/messages/stats');
+        if (statsResponse.data.success && statsResponse.data.data) {
+          setStats({
+            totalLeads: statsResponse.data.data.totalLeads || 0,
+            totalConversations: statsResponse.data.data.totalConversations || 0,
+            messagesToday: statsResponse.data.data.messagesToday || 0,
+            conversionRate: statsResponse.data.data.conversionRate || 0,
+            leadsThisMonth: statsResponse.data.data.leadsThisMonth || 0
+          });
+          if (statsResponse.data.message) {
+            console.log('ℹ️', statsResponse.data.message);
+          }
+        }
+      } catch (error) {
+        console.log('Estatísticas não disponíveis ainda');
+        // Manter valores padrão
+      }
       
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
-      toast.error('Erro ao carregar dados do dashboard');
     } finally {
       setLoading(false);
     }
   };
 
-  // Função para calcular tempo relativo
-  const getTimeAgo = (dateString: string): string => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
-    if (diffInSeconds < 60) return `${diffInSeconds} segundos atrás`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min atrás`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h atrás`;
-    return `${Math.floor(diffInSeconds / 86400)} dias atrás`;
-  };
+  // const getTimeAgo = (timestamp: number) => {
+  //   try {
+  //     const date = new Date(timestamp * 1000);
+  //     if (isNaN(date.getTime())) return 'Data inválida';
+  //     
+  //   const now = new Date();
+  //   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  //   
+  //     if (diffInSeconds < 60) return 'Agora mesmo';
+  //     if (diffInSeconds < 60) return `${Math.floor(diffInSeconds / 60)}m atrás`;
+  //   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h atrás`;
+  //     return `${Math.floor(diffInSeconds / 86400)}d atrás`;
+  //   } catch (error) {
+  //     return 'Data inválida';
+  //   }
+  // };
 
-  // Calcular percentual de crescimento
-  const getGrowthPercentage = (current: number, previous: number): { value: string; type: 'positive' | 'negative' | 'neutral' } => {
-    if (previous === 0) {
-      return { value: current > 0 ? '+100%' : '0%', type: current > 0 ? 'positive' : 'neutral' };
-    }
-    
-    const percentage = ((current - previous) / previous) * 100;
-    const rounded = Math.round(percentage);
-    
-    if (rounded > 0) return { value: `+${rounded}%`, type: 'positive' };
-    if (rounded < 0) return { value: `${rounded}%`, type: 'negative' };
-    return { value: '0%', type: 'neutral' };
-  };
+  // const recentConversations = conversations
+  //   .filter(conv => conv.last_message_timestamp && conv.last_message_timestamp > 0)
+  //   .sort((a, b) => (b.last_message_timestamp || 0) - (a.last_message_timestamp || 0))
+  //   .slice(0, 5)
+  //   .map(conv => {
+  //     try {
+  //       const date = new Date((conv.last_message_timestamp || 0) * 1000);
+  //       if (isNaN(date.getTime())) {
+  //         return { ...conv, formattedTime: 'Data inválida' };
+  //         }
+  //       return { ...conv, formattedTime: getTimeAgo(conv.last_message_timestamp || 0) };
+  //     } catch (error) {
+  //       return { ...conv, formattedTime: 'Data inválida' };
+  //     }
+  //   });
 
-  // Carregar dados na inicialização
-  useEffect(() => {
-    loadDashboardData();
-    
-    // Atualizar a cada 30 segundos
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // const recentLeads = leads
+  //   .filter(lead => lead.created_at)
+  //   .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  //   .slice(0, 5);
 
-  // Dados dos cards de estatísticas
-  const statsCards = [
-    { 
-      name: 'Total de Leads', 
-      value: stats.totalLeads.toLocaleString(), 
-      change: getGrowthPercentage(stats.leadsThisMonth, Math.floor(stats.totalLeads * 0.8)), 
-      icon: UsersIcon 
-    },
-    { 
-      name: 'Conversas Ativas', 
-      value: stats.activeConversations.toString(), 
-      change: getGrowthPercentage(stats.conversationsThisMonth, Math.floor(stats.totalConversations * 0.8)), 
-      icon: ChatBubbleLeftRightIcon 
-    },
-    { 
-      name: 'Instâncias WhatsApp', 
-      value: stats.totalInstances.toString(), 
-      change: { value: '0%', type: 'neutral' as const }, 
-      icon: PhoneIcon 
-    },
-    { 
-      name: 'Total Conversas', 
-      value: stats.totalConversations.toString(), 
-      change: getGrowthPercentage(stats.conversationsThisMonth, Math.floor(stats.totalConversations * 0.8)), 
-      icon: CurrencyDollarIcon 
-    },
-  ];
+  // const conversationsThisMonth = conversations.filter(conv => {
+  //   try {
+  //     if (!conv.last_message_timestamp || conv.last_message_timestamp <= 0) return false;
+  //     const date = new Date(conv.last_message_timestamp * 1000);
+  //     if (isNaN(date.getTime())) return false;
+  //     
+  //     const now = new Date();
+  //     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  //     return date >= startOfMonth;
+  //     } catch (error) {
+  //     return false;
+  //   }
+  // });
+
+  // const leadsThisMonth = leads.filter(lead => {
+  //   try {
+  //     if (!lead.created_at) return false;
+  //     const date = new Date(lead.created_at);
+  //       if (isNaN(date.getTime())) return false;
+  //     
+  //     const now = new Date();
+  //     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  //     return date >= startOfMonth;
+  //   } catch (error) {
+  //     return false;
+  //   }
+  // });
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Visão geral do seu WhatsApp CRM</p>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white overflow-hidden shadow rounded-lg animate-pulse">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="h-6 w-6 bg-gray-200 rounded"></div>
-                  <div className="ml-5 w-0 flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        <div className="bg-white shadow rounded-lg animate-pulse">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="space-y-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center space-x-3">
-                  <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-all duration-500">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Visão geral do seu WhatsApp CRM</p>
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                Dashboard
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                Visão geral do seu CRM WhatsApp
+              </p>
+            </div>
+            {/* Status da Instância */}
+            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+              instanceConnected 
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                instanceConnected ? 'bg-green-500' : 'bg-red-500'
+              }`}></div>
+              <span className="text-sm font-medium">
+                {instanceConnected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {statsCards.map((item) => (
-          <div key={item.name} className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <item.icon className="h-6 w-6 text-gray-400" aria-hidden="true" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">{item.name}</dt>
-                    <dd className="flex items-baseline">
-                      <div className="text-2xl font-semibold text-gray-900">{item.value}</div>
-                      <div className={`ml-2 flex items-baseline text-sm font-semibold ${
-                        item.change.type === 'positive' ? 'text-green-600' : 
-                        item.change.type === 'negative' ? 'text-red-600' : 'text-gray-500'
-                      }`}>
-                        {item.change.type === 'positive' && <ArrowUpIcon className="self-center flex-shrink-0 h-4 w-4" />}
-                        {item.change.type === 'negative' && <ArrowDownIcon className="self-center flex-shrink-0 h-4 w-4" />}
-                        <span className="ml-1">{item.change.value}</span>
-                      </div>
-                    </dd>
-                  </dl>
+      {/* Content */}
+      <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Aviso de Instância Desconectada */}
+        {!instanceConnected && (
+          <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  WhatsApp não conectado
+                </h3>
+                <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                  <p>
+                    Para ver conversas e estatísticas reais, conecte sua instância do WhatsApp em{' '}
+                    <a href="/gerenciar-instancias" className="font-medium underline hover:text-amber-600 dark:hover:text-amber-400">
+                      Gerenciar Instâncias
+                    </a>
+                  </p>
                 </div>
               </div>
             </div>
           </div>
-        ))}
+        )}
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+          {/* Total de Leads */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm sm:text-base font-medium text-gray-600 dark:text-gray-400">
+                  Total de Leads
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                  {stats.totalLeads || 0}
+                </p>
+                </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center">
+                <Users className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+          </div>
+
+          {/* Conversas */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm sm:text-base font-medium text-gray-600 dark:text-gray-400">
+                  Conversas
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                  {stats.totalConversations || 0}
+                </p>
+              </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
       </div>
 
-      {/* Recent Activities */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Atividades Recentes</h3>
-          <div className="flow-root">
-            {stats.recentActivities.length === 0 ? (
-              <div className="text-center py-8">
-                <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma atividade recente</h3>
-                <p className="mt-1 text-sm text-gray-500">As atividades aparecerão aqui conforme você usar o sistema.</p>
+          {/* Mensagens Hoje */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm sm:text-base font-medium text-gray-600 dark:text-gray-400">
+                  Mensagens Hoje
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                  {stats.messagesToday || 0}
+                </p>
               </div>
-            ) : (
-              <ul className="-mb-8">
-                {stats.recentActivities.map((activity, activityIdx) => (
-                  <li key={activity.id}>
-                    <div className="relative pb-8">
-                      {activityIdx !== stats.recentActivities.length - 1 ? (
-                        <span
-                          className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                      <div className="relative flex space-x-3">
-                        <div>
-                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
-                            activity.type === 'lead' ? 'bg-blue-500' :
-                            activity.type === 'conversation' ? 'bg-green-500' :
-                            activity.type === 'message' ? 'bg-purple-500' : 'bg-gray-500'
-                          }`}>
-                            {activity.type === 'lead' && <UsersIcon className="h-4 w-4 text-white" />}
-                            {activity.type === 'conversation' && <ChatBubbleLeftRightIcon className="h-4 w-4 text-white" />}
-                            {activity.type === 'message' && <PhoneIcon className="h-4 w-4 text-white" />}
-                          </span>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center">
+                <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 text-purple-600 dark:text-purple-400" />
+              </div>
+              </div>
                         </div>
-                        <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+
+          {/* Leads Este Mês */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-gray-500">{activity.message}</p>
+                <p className="text-sm sm:text-base font-medium text-gray-600 dark:text-gray-400">
+                  Leads Este Mês
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                  {stats.leadsThisMonth || 0}
+                </p>
                           </div>
-                          <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                            <time>{activity.time}</time>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center">
+                <GitBranch className="w-6 h-6 sm:w-7 sm:h-7 text-orange-600 dark:text-orange-400" />
                           </div>
                         </div>
                       </div>
                     </div>
-                  </li>
+
+        {/* Recent Conversations */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="px-4 sm:px-6 py-4 sm:py-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+              Conversas Recentes
+            </h2>
+          </div>
+          <div className="p-4 sm:p-6">
+            {conversations.length > 0 ? (
+              <div className="space-y-3 sm:space-y-4">
+                {conversations.slice(0, 5).map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className="flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-semibold text-sm sm:text-base">
+                      {conversation.contact_name ? conversation.contact_name.charAt(0).toUpperCase() : 'C'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate">
+                        {conversation.contact_name || 'Contato'}
+                      </p>
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
+                        {conversation.last_message || 'Nenhuma mensagem'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                        {conversation.last_message_time ? new Date(conversation.last_message_time).toLocaleDateString('pt-BR') : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
+            ) : (
+              <div className="text-center py-8 sm:py-12">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-2">
+                  Nenhuma conversa recente
+                </h3>
+                <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">
+                  Comece a usar o WhatsApp para ver suas conversas aqui
+                </p>
+              </div>
             )}
           </div>
         </div>

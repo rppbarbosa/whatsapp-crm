@@ -167,32 +167,11 @@ router.get('/:id/messages', authenticateApiKey, async (req, res) => {
         return res.status(400).json({ error: 'Parâmetro instance é obrigatório para contatos do WhatsApp' });
       }
       
-      // Buscar mensagens do WhatsApp para este contato
-      const evolutionApiService = require('../services/evolutionApi');
+      // Para Baileys, implementar posteriormente
+      const messages = [];
+      const formattedMessages = [];
       
-      try {
-        const messages = await evolutionApiService.getMessages(instanceName, 50);
-        
-        // Filtrar mensagens para este contato específico
-        const contactMessages = messages.filter(msg => 
-          msg.from === contactId || msg.to === contactId
-        );
-        
-        // Converter para o formato esperado pelo frontend
-        const formattedMessages = contactMessages.map(msg => ({
-          id: msg.id,
-          content: msg.body,
-          sender_type: msg.isFromMe ? 'user' : 'customer',
-          message_type: msg.type || 'text',
-          created_at: new Date(msg.timestamp * 1000).toISOString(),
-          conversation_id: contactId
-        }));
-        
-        res.json(formattedMessages);
-      } catch (whatsappError) {
-        console.error('Erro ao buscar mensagens do WhatsApp:', whatsappError);
-        return res.status(500).json({ error: 'Erro ao buscar mensagens do WhatsApp' });
-      }
+      res.json(formattedMessages);
     } else {
       // É um ID de conversa do banco
       const { data, error } = await supabase

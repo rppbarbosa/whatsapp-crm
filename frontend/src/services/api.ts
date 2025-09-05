@@ -102,7 +102,7 @@ export interface Customer {
 export interface WhatsAppInstance {
   id?: string;
   instance_name: string;
-  status: 'connected' | 'disconnected' | 'connecting';
+  status: 'connected' | 'disconnected' | 'connecting' | 'qr_ready';
   qr_code?: string;
   phone_number?: string;
   webhook_url?: string;
@@ -202,7 +202,7 @@ export const conversationsAPI = {
     }
     
     try {
-      const response = await whatsappApi.getConversationMessages(id, instance, 50);
+      const response = await whatsappApi.getConversationMessages(id, 50);
       return response.data || [];
     } catch (error) {
       console.error('Erro ao buscar mensagens:', error);
@@ -298,42 +298,60 @@ export const whatsappApi = {
   // Health check
   health: () => api.get('/health'),
   
+  // Métodos genéricos para resolver erros de compilação
+  get: (url: string) => api.get(url),
+  post: (url: string, data?: any) => api.post(url, data),
+  delete: (url: string) => api.delete(url),
+  
   // Instâncias
-  getInstances: () => api.get<{ success: boolean; data: WhatsAppInstance[] }>('/api/whatsapp/instances'),
+  getInstance: () => api.get<{ success: boolean; hasInstance: boolean; data?: any }>('/api/whatsapp/instance'),
   
   createInstance: (data: CreateInstanceRequest) => 
-    api.post<WhatsAppInstance>('/api/whatsapp/instances', data),
+    api.post<WhatsAppInstance>('/api/whatsapp/instance', data),
   
-                connectInstance: (instanceName: string) => 
-                api.get<WhatsAppInstance>(`/api/whatsapp/instances/${instanceName}/connect`),
-              
-              getQRCode: (instanceName: string) => 
-                api.get(`/api/whatsapp/instances/${instanceName}/qr-code`),
-              
-              deleteInstance: (instanceName: string) => 
-                api.delete(`/api/whatsapp/instances/${instanceName}`),
+  deleteInstance: () => 
+    api.delete('/api/whatsapp/instance'),
+
+  // Status detalhado da instância
+  getInstanceStatus: () =>
+    api.get<{ success: boolean; instance?: any }>('/api/whatsapp/instance/status'),
+
+  // Limpeza inteligente da instância (só fecha se não autenticada)
+  cleanupInstance: (instanceName: string, force: boolean = false) =>
+    api.post<{ success: boolean; message: string; status?: string; phone?: string }>('/api/whatsapp/instance/cleanup', { instanceName, force }),
+
+  // Forçar parada da instância (mesmo se autenticada)
+  forceStopInstance: (instanceName: string) =>
+    api.post<{ success: boolean; message: string }>('/api/whatsapp/instance/force-stop', { instanceName }),
+  
+  // QR Code
+  getQRCode: () => 
+    api.get<{ success: boolean; qrCode?: string; instanceName?: string; timestamp?: string }>('/api/whatsapp/instance/qr-code'),
+  
+  refreshQRCode: () => 
+    api.post<{ success: boolean; message: string; instanceName: string }>('/api/whatsapp/instance/refresh-qr'),
   
   // Sincronização
-  syncContacts: (instanceName: string) => 
-    api.post(`/api/whatsapp/instances/${instanceName}/sync-contacts`),
+  syncContacts: () => 
+    api.post('/api/whatsapp/instance/sync'),
   
-  syncMessages: (instanceName: string, limit: number = 100) => 
-    api.post(`/api/whatsapp/instances/${instanceName}/sync-messages?limit=${limit}`),
+  syncMessages: (limit: number = 100) => 
+    api.post('/api/whatsapp/instance/sync'),
   
   // Contatos
-  getContacts: (instanceName: string, forceRefresh: boolean = false) => 
-    api.get(`/api/whatsapp/instances/${instanceName}/contacts?forceRefresh=${forceRefresh}`),
+  getContacts: (forceRefresh: boolean = false) => 
+    api.get('/api/whatsapp/chats'),
   
   // Conversas
-  getConversations: (instanceName: string, forceRefresh: boolean = false) => 
-    api.get<{ success: boolean; data: any[] }>(`/api/whatsapp/instances/${instanceName}/conversations?forceRefresh=${forceRefresh}`),
+  getConversations: (forceRefresh: boolean = false) => 
+    api.get<any[]>('/api/whatsapp/instance/conversations'),
   
   // Mensagens
-  getConversationMessages: (contactId: string, instanceName: string, limit: number = 50) => 
-    api.get(`/api/whatsapp/conversations/${contactId}/messages?instance=${instanceName}&limit=${limit}`),
+  getConversationMessages: (contactId: string, limit: number = 50) => 
+    api.get<any[]>(`/api/whatsapp/chats/${contactId}/messages?limit=${limit}`),
   
-  sendMessage: (instanceName: string, data: SendMessageRequest) => 
-    api.post(`/api/whatsapp/instances/${instanceName}/send-message`, {
+  sendMessage: (data: SendMessageRequest) => 
+    api.post('/api/whatsapp/instance/send-message', {
       ...data,
       clientMessageId: data && (data as any).clientMessageId,
     }),

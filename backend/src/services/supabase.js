@@ -6,7 +6,8 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️  Supabase não configurado. Configure SUPABASE_URL e SUPABASE_ANON_KEY no .env');
+  console.error('❌ Supabase não configurado. Configure SUPABASE_URL e SUPABASE_ANON_KEY no .env');
+  process.exit(1);
 }
 
 // Cliente Supabase para operações públicas
@@ -14,6 +15,8 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Cliente Supabase para operações administrativas (service role)
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+console.log('✅ Supabase configurado com sucesso');
 
 module.exports = {
   supabase,
