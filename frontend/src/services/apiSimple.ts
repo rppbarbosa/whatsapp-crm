@@ -48,6 +48,19 @@ export interface Message {
   to: string;
   isFromMe: boolean;
   type: string;
+  author?: string;
+  quotedMsg?: {
+    body: string;
+    author: string;
+  };
+}
+
+export interface MessagesResponse {
+  success: boolean;
+  data: Message[];
+  totalMessages?: number;
+  hasMoreHistory?: boolean;
+  hasMore?: boolean;
 }
 
 export const whatsappApi = {
@@ -67,9 +80,13 @@ export const whatsappApi = {
   getChats: (): Promise<{ data: { success: boolean; data: Chat[] } }> =>
     api.get('/api/whatsapp/chats'),
 
-  // Obter mensagens de uma conversa
-  getMessages: (chatId: string, limit: number = 50): Promise<{ data: { success: boolean; data: Message[] } }> =>
-    api.get(`/api/whatsapp/chats/${chatId}/messages?limit=${limit}`),
+  // Obter mensagens de uma conversa com histórico
+  getMessages: (chatId: string, limit: number = 50, loadHistory: boolean = true): Promise<{ data: MessagesResponse }> =>
+    api.get(`/api/whatsapp/chats/${chatId}/messages?limit=${limit}&loadHistory=${loadHistory}`),
+
+  // Carregar mensagens anteriores (paginação)
+  getEarlierMessages: (chatId: string, beforeMessageId: string, limit: number = 50): Promise<{ data: MessagesResponse }> =>
+    api.get(`/api/whatsapp/chats/${chatId}/messages/earlier?beforeMessageId=${beforeMessageId}&limit=${limit}`),
 
   // Enviar mensagem
   sendMessage: (to: string, message: string): Promise<{ data: { success: boolean; data: { messageId: string } } }> =>
@@ -81,7 +98,15 @@ export const whatsappApi = {
 
   // Desconectar WhatsApp
   destroy: (): Promise<{ data: { success: boolean; message: string } }> =>
-    api.post('/api/whatsapp/destroy')
+    api.post('/api/whatsapp/destroy'),
+
+  // Dashboard APIs
+  getInstanceStatus: (): Promise<{ data: { success: boolean; data?: { status: string } } }> =>
+    api.get('/api/whatsapp/status'),
+
+  // Fazer requisições genéricas
+  get: (url: string): Promise<{ data: any }> =>
+    api.get(url)
 };
 
 export default api;

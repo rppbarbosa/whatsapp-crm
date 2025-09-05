@@ -5,7 +5,7 @@ import {
   BarChart3,
   GitBranch
 } from 'lucide-react';
-import { whatsappApi } from '../services/api';
+import { whatsappApi } from '../services/apiSimple';
 
 // interface Lead {
 //     id: string;
@@ -53,8 +53,8 @@ export default function Dashboard() {
       // Verificar status da instância
       try {
         const instanceResponse = await whatsappApi.getInstanceStatus();
-        if (instanceResponse.data.success && instanceResponse.data.instance) {
-          setInstanceConnected(instanceResponse.data.instance.status === 'connected');
+        if (instanceResponse.data.success && instanceResponse.data.data) {
+          setInstanceConnected(instanceResponse.data.data.status === 'connected');
         }
       } catch (error) {
         console.log('Status da instância não disponível');

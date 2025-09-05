@@ -16,10 +16,18 @@ const WhatsAppBusinessSimple: React.FC = () => {
     selectedChat,
     messages,
     loading,
+    loadingHistory,
+    hasMoreHistory,
+    totalMessages,
+    isUserScrolling,
+    shouldAutoScroll,
     initializeWhatsApp,
     sendMessage,
     selectChat,
-    loadChats
+    loadChats,
+    loadEarlierMessages,
+    setIsUserScrolling,
+    setShouldAutoScroll
   } = useWhatsAppStateSimple();
 
   // Converter dados do backend para o formato dos componentes
@@ -166,9 +174,17 @@ const WhatsAppBusinessSimple: React.FC = () => {
             contact={selectedContact}
             messages={convertedMessages}
             loading={loading}
+            loadingHistory={loadingHistory}
+            hasMoreHistory={hasMoreHistory}
+            totalMessages={totalMessages}
+            isUserScrolling={isUserScrolling}
+            shouldAutoScroll={shouldAutoScroll}
             onSendMessage={handleSendMessage}
             onSendMedia={handleSendMedia}
             onBackToConversations={handleBackToConversations}
+            onLoadEarlierMessages={loadEarlierMessages}
+            onUserScrollChange={setIsUserScrolling}
+            onAutoScrollChange={setShouldAutoScroll}
           />
         )
       )}

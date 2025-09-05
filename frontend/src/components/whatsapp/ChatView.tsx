@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Paperclip, 
   Image as ImageIcon, 
@@ -43,9 +43,17 @@ interface ChatViewProps {
   contact: WhatsAppContact;
   messages: WhatsAppMessage[];
   loading: boolean;
+  loadingHistory?: boolean;
+  hasMoreHistory?: boolean;
+  totalMessages?: number;
+  isUserScrolling?: boolean;
+  shouldAutoScroll?: boolean;
   onSendMessage: (message: string) => void;
   onSendMedia: (file: File, type: 'image' | 'video' | 'audio' | 'document', message?: string) => void;
   onBackToConversations: () => void;
+  onLoadEarlierMessages?: () => void;
+  onUserScrollChange?: (isScrolling: boolean) => void;
+  onAutoScrollChange?: (shouldScroll: boolean) => void;
   onContactUpdate?: (contactId: string, updates: Partial<WhatsAppContact>) => void;
 }
 
@@ -53,9 +61,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
   contact,
   messages,
   loading,
+  loadingHistory = false,
+  hasMoreHistory = false,
+  totalMessages = 0,
+  isUserScrolling = false,
+  shouldAutoScroll = true,
   onSendMessage,
   onSendMedia,
   onBackToConversations,
+  onLoadEarlierMessages,
+  onUserScrollChange,
+  onAutoScrollChange,
   onContactUpdate
 }) => {
   const [messageText, setMessageText] = useState('');
@@ -64,6 +80,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -73,9 +90,52 @@ export const ChatView: React.FC<ChatViewProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Handler para scroll infinito e detecção de navegação do usuário
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+
+    const container = messagesContainerRef.current;
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    const scrollThreshold = 100;
+
+    // Detectar se usuário está navegando no histórico (não está no final)
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+    const userIsScrolling = !isNearBottom;
+
+    // Notificar mudança de estado de scroll
+    if (onUserScrollChange && userIsScrolling !== isUserScrolling) {
+      onUserScrollChange(userIsScrolling);
+    }
+
+    // Auto scroll apenas quando próximo do final
+    if (onAutoScrollChange) {
+      onAutoScrollChange(isNearBottom);
+    }
+
+    // Carregar mensagens anteriores apenas no topo
+    if (scrollTop <= scrollThreshold && onLoadEarlierMessages && !loadingHistory && hasMoreHistory) {
+      console.log('📜 Scroll no topo detectado, carregando mensagens anteriores...');
+      onLoadEarlierMessages();
+    }
+  }, [onLoadEarlierMessages, loadingHistory, hasMoreHistory, onUserScrollChange, onAutoScrollChange, isUserScrolling]);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    // Só faz scroll automático se o usuário não estiver navegando no histórico
+    if (shouldAutoScroll && !isUserScrolling) {
+      scrollToBottom();
+    }
+  }, [messages, shouldAutoScroll, isUserScrolling]);
+
+  // Adicionar event listener para scroll infinito
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   const handleSendMessage = () => {
     if (messageText.trim()) {
@@ -267,7 +327,41 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Área de Mensagens */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0"
+      >
+        {/* Indicador de carregamento de histórico */}
+        {loadingHistory && (
+          <div className="flex justify-center py-4">
+            <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+              <span className="text-sm">Carregando mensagens antigas...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Indicador de mais histórico disponível */}
+        {hasMoreHistory && !loadingHistory && (
+          <div className="flex justify-center py-2">
+            <button 
+              onClick={onLoadEarlierMessages}
+              className="text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors"
+            >
+              📜 Carregar mensagens anteriores
+            </button>
+          </div>
+        )}
+
+        {/* Badge com total de mensagens */}
+        {totalMessages > 0 && (
+          <div className="flex justify-center py-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+              📚 {totalMessages} mensagens no histórico
+            </span>
+          </div>
+        )}
+
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 dark:text-gray-400 py-6">
             <p>Nenhuma mensagem ainda</p>

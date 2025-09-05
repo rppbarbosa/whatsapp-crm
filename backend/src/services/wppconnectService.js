@@ -220,8 +220,8 @@ class WPPConnectService {
     }
   }
 
-  // Obter mensagens de uma conversa
-  async getChatMessages(chatId, limit = 50) {
+  // Obter mensagens de uma conversa com histórico completo
+  async getChatMessages(chatId, limit = 50, loadHistory = true) {
     try {
       if (!this.client || !this.isConnected) {
         return {
@@ -231,10 +231,32 @@ class WPPConnectService {
         };
       }
 
-      console.log(`📱 Obtendo mensagens do chat via WPPConnect: ${chatId.substring(0, 20)}...`);
-      const messages = await this.client.getAllMessagesInChat(chatId, true, false);
+      // console.log(`📱 Obtendo mensagens do chat via WPPConnect: ${chatId.substring(0, 20)}...`);
       
-      // Limitar e formatar mensagens
+      let messages = [];
+      
+      if (loadHistory) {
+        console.log('🔄 Carregando histórico completo de mensagens...');
+        try {
+          // Tentar carregar histórico completo (função pode não existir em algumas versões)
+          if (typeof this.client.loadAndGetAllMessagesInChat === 'function') {
+            messages = await this.client.loadAndGetAllMessagesInChat(chatId, true, false);
+            console.log(`📚 ${messages.length} mensagens carregadas do histórico completo`);
+          } else {
+            console.log('⚠️ Função loadAndGetAllMessagesInChat não disponível, usando método padrão');
+            messages = await this.client.getAllMessagesInChat(chatId, true, false);
+          }
+        } catch (historyError) {
+          console.log('⚠️ Erro ao carregar histórico completo, usando método padrão:', historyError.message);
+          // Fallback para método padrão se loadAndGetAllMessagesInChat falhar
+          messages = await this.client.getAllMessagesInChat(chatId, true, false);
+        }
+      } else {
+        // Método padrão (apenas mensagens já carregadas)
+        messages = await this.client.getAllMessagesInChat(chatId, true, false);
+      }
+      
+      // Limitar e formatar mensagens (pegar as mais recentes)
       const limitedMessages = messages.slice(-limit);
       const formattedMessages = limitedMessages.map(msg => ({
         id: msg.id,
@@ -243,20 +265,116 @@ class WPPConnectService {
         from: msg.from,
         to: msg.to,
         isFromMe: msg.fromMe,
-        type: msg.type || 'text'
+        type: msg.type || 'text',
+        author: msg.author || null, // Para grupos
+        quotedMsg: msg.quotedMsg ? {
+          body: msg.quotedMsg.body || '',
+          author: msg.quotedMsg.author
+        } : null
       }));
 
-      console.log(`✅ ${formattedMessages.length} mensagens encontradas`);
+      // console.log(`✅ ${formattedMessages.length} mensagens formatadas (${messages.length} total)`);
       return {
         success: true,
-        data: formattedMessages
+        data: formattedMessages,
+        totalMessages: messages.length,
+        hasMoreHistory: messages.length > limit
       };
     } catch (error) {
       console.error('❌ Erro ao obter mensagens:', error);
       return {
         success: false,
         error: error.message,
-        data: []
+        data: [],
+        totalMessages: 0,
+        hasMoreHistory: false
+      };
+    }
+  }
+
+  // Carregar mensagens antigas (paginação)
+  async loadEarlierMessages(chatId, beforeMessageId, limit = 50) {
+    try {
+      if (!this.client || !this.isConnected) {
+        return {
+          success: false,
+          error: 'WhatsApp não está conectado',
+          data: []
+        };
+      }
+
+      console.log(`📜 Carregando mensagens anteriores do chat: ${chatId.substring(0, 20)}...`);
+      
+      // Carregar todas as mensagens primeiro (usar método disponível)
+      let allMessages;
+      if (typeof this.client.loadAndGetAllMessagesInChat === 'function') {
+        allMessages = await this.client.loadAndGetAllMessagesInChat(chatId, true, false);
+      } else {
+        // Fallback para método padrão
+        allMessages = await this.client.getAllMessagesInChat(chatId, true, false);
+      }
+      
+      // Encontrar o índice da mensagem de referência
+      const beforeIndex = allMessages.findIndex(msg => msg.id === beforeMessageId);
+      
+      if (beforeIndex === -1) {
+        console.log('⚠️ Mensagem de referência não encontrada, retornando mensagens mais antigas');
+        const earlierMessages = allMessages.slice(0, limit);
+        
+        const formattedMessages = earlierMessages.map(msg => ({
+          id: msg.id,
+          body: msg.body || msg.caption || '',
+          timestamp: msg.timestamp,
+          from: msg.from,
+          to: msg.to,
+          isFromMe: msg.fromMe,
+          type: msg.type || 'text',
+          author: msg.author || null,
+          quotedMsg: msg.quotedMsg ? {
+            body: msg.quotedMsg.body || '',
+            author: msg.quotedMsg.author
+          } : null
+        }));
+
+        return {
+          success: true,
+          data: formattedMessages,
+          hasMore: allMessages.length > limit
+        };
+      }
+      
+      // Pegar mensagens anteriores à mensagem de referência
+      const startIndex = Math.max(0, beforeIndex - limit);
+      const earlierMessages = allMessages.slice(startIndex, beforeIndex);
+      
+      const formattedMessages = earlierMessages.map(msg => ({
+        id: msg.id,
+        body: msg.body || msg.caption || '',
+        timestamp: msg.timestamp,
+        from: msg.from,
+        to: msg.to,
+        isFromMe: msg.fromMe,
+        type: msg.type || 'text',
+        author: msg.author || null,
+        quotedMsg: msg.quotedMsg ? {
+          body: msg.quotedMsg.body || '',
+          author: msg.quotedMsg.author
+        } : null
+      }));
+
+      console.log(`✅ ${formattedMessages.length} mensagens anteriores carregadas`);
+      return {
+        success: true,
+        data: formattedMessages,
+        hasMore: startIndex > 0
+      };
+    } catch (error) {
+      console.error('❌ Erro ao carregar mensagens anteriores:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: [],
+        hasMore: false
       };
     }
   }

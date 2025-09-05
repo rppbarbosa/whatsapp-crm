@@ -11,6 +11,11 @@ export const useWhatsAppStateSimple = () => {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   // Carregar status do WhatsApp
   const loadStatus = useCallback(async () => {
@@ -46,7 +51,7 @@ export const useWhatsAppStateSimple = () => {
   // Carregar conversas
   const loadChats = useCallback(async () => {
     try {
-      console.log('🔄 Carregando conversas...');
+      // console.log('🔄 Carregando conversas...');
       const response = await whatsappApi.getChats();
       console.log('📡 Resposta da API:', response.data);
       if (response.data.success) {
@@ -61,23 +66,81 @@ export const useWhatsAppStateSimple = () => {
     }
   }, []);
 
-  // Carregar mensagens de uma conversa
-  const loadMessages = useCallback(async (chatId: string) => {
+  // Carregar mensagens de uma conversa com histórico
+  const loadMessages = useCallback(async (chatId: string, loadHistory: boolean = true) => {
     try {
       console.log('📱 Carregando mensagens para:', chatId.substring(0, 20) + '...');
-      const response = await whatsappApi.getMessages(chatId, 20); // Limitar a 20 mensagens
+      setLoadingHistory(loadHistory);
+      
+      const response = await whatsappApi.getMessages(chatId, 50, loadHistory);
       if (response.data.success) {
         console.log('✅ Mensagens carregadas:', response.data.data.length);
+        console.log('📚 Total de mensagens no histórico:', response.data.totalMessages);
+        
         setMessages(response.data.data);
+        setHasMoreHistory(response.data.hasMoreHistory || false);
+        setTotalMessages(response.data.totalMessages || 0);
+        
+        if (loadHistory && response.data.totalMessages) {
+          toast.success(`📚 Histórico carregado: ${response.data.totalMessages} mensagens`, {
+            duration: 3000,
+            icon: '📚'
+          });
+        }
       } else {
         console.log('❌ Erro ao carregar mensagens:', response.data);
-        setMessages([]); // Limpar mensagens em caso de erro
+        setMessages([]);
+        setHasMoreHistory(false);
+        setTotalMessages(0);
       }
     } catch (error) {
       console.error('❌ Erro ao carregar mensagens:', error);
-      setMessages([]); // Limpar mensagens em caso de erro
+      setMessages([]);
+      setHasMoreHistory(false);
+      setTotalMessages(0);
+    } finally {
+      setLoadingHistory(false);
     }
   }, []);
+
+  // Carregar mensagens anteriores (scroll infinito)
+  const loadEarlierMessages = useCallback(async () => {
+    if (!selectedChat || !hasMoreHistory || loadingHistory) return;
+
+    try {
+      setLoadingHistory(true);
+      console.log('📜 Carregando mensagens anteriores...');
+      
+      // Pegar a mensagem mais antiga atual como referência
+      const oldestMessage = messages[0];
+      if (!oldestMessage) return;
+      
+      const response = await whatsappApi.getEarlierMessages(selectedChat.id, oldestMessage.id, 50);
+      if (response.data.success && response.data.data.length > 0) {
+        console.log('✅ Mensagens anteriores carregadas:', response.data.data.length);
+        
+        // Adicionar mensagens anteriores no início da lista
+        setMessages(prevMessages => [...response.data.data, ...prevMessages]);
+        setHasMoreHistory(response.data.hasMore || false);
+        
+        toast.success(`📜 +${response.data.data.length} mensagens antigas carregadas`, {
+          duration: 2000,
+          icon: '📜'
+        });
+      } else {
+        setHasMoreHistory(false);
+        toast('📭 Não há mais mensagens antigas', {
+          duration: 2000,
+          icon: '📭'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar mensagens anteriores:', error);
+      toast.error('Erro ao carregar mensagens antigas');
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [selectedChat, hasMoreHistory, loadingHistory, messages]);
 
   // Enviar mensagem
   const sendMessage = useCallback(async (message: string) => {
@@ -101,7 +164,10 @@ export const useWhatsAppStateSimple = () => {
   // Selecionar conversa
   const selectChat = useCallback((chat: Chat) => {
     setSelectedChat(chat);
-    loadMessages(chat.id);
+    setMessages([]); // Limpar mensagens anteriores
+    setHasMoreHistory(false);
+    setTotalMessages(0);
+    loadMessages(chat.id, true); // Carregar com histórico por padrão
   }, [loadMessages]);
 
   // Carregar dados iniciais
@@ -141,22 +207,24 @@ export const useWhatsAppStateSimple = () => {
     return () => clearTimeout(timer);
   }, [loadChats]);
 
-  // Polling para atualizar mensagens da conversa selecionada
+  // Polling para atualizar mensagens da conversa selecionada (sem histórico)
   useEffect(() => {
-    if (selectedChat && status.status === 'connected') {
+    if (selectedChat && status.status === 'connected' && !isUserScrolling) {
       console.log('🔄 Iniciando polling de mensagens para:', selectedChat.name);
       
       const interval = setInterval(() => {
-        console.log('🔄 Atualizando mensagens automaticamente...');
-        loadMessages(selectedChat.id);
-      }, 3000); // Atualizar a cada 3 segundos
+        if (!isUserScrolling) {
+          // console.log('🔄 Atualizando mensagens automaticamente...');
+          loadMessages(selectedChat.id, false); // Sem histórico no polling para ser mais rápido
+        }
+      }, 10000); // Reduzido para 10 segundos
 
       return () => {
         console.log('⏹️ Parando polling de mensagens');
         clearInterval(interval);
       };
     }
-  }, [selectedChat, status.status, loadMessages]);
+  }, [selectedChat, status.status, loadMessages, isUserScrolling]);
 
   // Polling para atualizar lista de conversas (para contador não lidas)
   useEffect(() => {
@@ -164,9 +232,9 @@ export const useWhatsAppStateSimple = () => {
       console.log('🔄 Iniciando polling de conversas para contadores não lidas...');
       
       const interval = setInterval(() => {
-        console.log('📊 Atualizando lista de conversas...');
+        // console.log('📊 Atualizando lista de conversas...');
         loadChats();
-      }, 5000); // Atualizar lista a cada 5 segundos
+      }, 30000); // Reduzido para 30 segundos
 
       return () => {
         console.log('⏹️ Parando polling de conversas');
@@ -181,11 +249,19 @@ export const useWhatsAppStateSimple = () => {
     selectedChat,
     messages,
     loading,
+    loadingHistory,
+    hasMoreHistory,
+    totalMessages,
+    isUserScrolling,
+    shouldAutoScroll,
     initializeWhatsApp,
     loadStatus,
     loadChats,
     loadMessages,
+    loadEarlierMessages,
     sendMessage,
-    selectChat
+    selectChat,
+    setIsUserScrolling,
+    setShouldAutoScroll
   };
 };
