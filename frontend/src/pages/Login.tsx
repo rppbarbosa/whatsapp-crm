@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+// import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { 
   Mail, 
@@ -18,7 +18,12 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { login } = useAuth();
+  // const { login } = useAuth();
+  const login = async (email: string, password: string) => {
+    // Simular login
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  };
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {

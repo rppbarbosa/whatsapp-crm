@@ -15,7 +15,7 @@ import {
   Shield
 } from 'lucide-react';
 
-interface WhatsAppContact {
+export interface WhatsAppContact {
   id: string;
   name: string;
   phone: string;
@@ -201,7 +201,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
 
 
-  // Fechar dropdown quando pressionar ESC
+  // Fechar dropdown quando pressionar ESC ou clicar fora
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -209,9 +209,27 @@ export const ConversationList: React.FC<ConversationListProps> = ({
       }
     };
 
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, []);
+    const handleClickOutside = (e: MouseEvent) => {
+      // Fechar dropdown se clicar fora dele
+      if (openDropdown) {
+        const target = e.target as Element;
+        // Verificar se o clique não foi no botão do dropdown nem no próprio dropdown
+        if (!target.closest('[data-contact-id]') && !target.closest('.dropdown-menu')) {
+          setOpenDropdown(null);
+        }
+      }
+    };
+
+    if (openDropdown) {
+      document.addEventListener('keydown', handleEscape);
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdown]);
 
   if (loading) {
     return (
@@ -373,7 +391,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     
                     <div className="flex items-center space-x-2">
                       <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {contact.lastMessage || 'Nenhuma mensagem'}
+                        {contact.lastMessage || ''}
                       </p>
                       {contact.isGroup && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -433,7 +451,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                              setOpenDropdown(null);
                            }}
                          />
-                                                  <div className={`absolute right-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 ${
+                                                  <div className={`dropdown-menu absolute right-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 ${
                            dropdownPosition === 'above' ? 'bottom-full mb-1' : 'top-full mt-1'
                          }`}>
                            {/* Seta indicativa */}
@@ -612,7 +630,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                          
                          <div className="flex items-center space-x-2">
                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                             {contact.lastMessage || 'Nenhuma mensagem'}
+                             {contact.lastMessage || ''}
                            </p>
                            {contact.isGroup && (
                              <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -672,7 +690,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                  setOpenDropdown(null);
                                }}
                              />
-                             <div className={`absolute right-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 ${
+                             <div className={`dropdown-menu absolute right-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 ${
                                dropdownPosition === 'above' ? 'bottom-full mb-1' : 'top-full mt-1'
                              }`}>
                                {/* Seta indicativa */}
@@ -827,7 +845,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                         {contact.name}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {contact.lastMessage || 'Nenhuma mensagem'}
+                        {contact.lastMessage || ''}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">

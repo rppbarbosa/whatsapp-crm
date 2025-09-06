@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sidebar } from '../Sidebar';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   LogOut, 
@@ -17,10 +17,12 @@ import Breadcrumbs from '../Breadcrumbs';
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     toast.success('Logout realizado com sucesso!');
+    navigate('/login');
   };
 
   return (

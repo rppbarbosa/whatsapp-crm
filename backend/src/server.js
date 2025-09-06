@@ -106,8 +106,10 @@ const customerRoutes = require('./routes/customers');
 // const aiRoutes = require('./routes/ai'); // Temporariamente desabilitado
 const leadsRoutes = require('./routes/leads');
 const evolutionChannelRoutes = require('./routes/evolutionChannel');
+const authRoutes = require('./routes/auth');
 
 // Usar rotas
+app.use('/api/auth', authRoutes);
 app.use('/api/whatsapp', whatsappWPPConnectRoutes);
 app.use('/api/customers', customerRoutes);
 // app.use('/api/ai', aiRoutes); // Temporariamente desabilitado

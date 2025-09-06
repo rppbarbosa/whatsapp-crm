@@ -67,4 +67,6 @@ const authenticateApiKey = (req, res, next) => {
   next();
 };
 
-module.exports = authenticateApiKey;
+module.exports = {
+  authenticateApiKey
+};

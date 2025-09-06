@@ -84,26 +84,50 @@ router.post('/', authenticateApiKey, async (req, res) => {
   try {
     console.log('📝 Recebendo dados para criar lead:', req.body);
     
-    const { name, email, phone, campaign, source, status, priority, notes } = req.body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      company, 
+      value, 
+      priority, 
+      nextContact, 
+      source, 
+      status, 
+      notes, 
+      tags 
+    } = req.body;
 
-    // Validação básica
+    // Validação básica - apenas campos obrigatórios
     if (!name) {
       console.log('❌ Nome não fornecido');
       return res.status(400).json({ error: 'Nome é obrigatório' });
     }
+    if (!phone) {
+      console.log('❌ Telefone não fornecido');
+      return res.status(400).json({ error: 'Telefone é obrigatório' });
+    }
+    if (!priority) {
+      console.log('❌ Prioridade não fornecida');
+      return res.status(400).json({ error: 'Prioridade é obrigatória' });
+    }
+    if (!source) {
+      console.log('❌ Fonte não fornecida');
+      return res.status(400).json({ error: 'Fonte do lead é obrigatória' });
+    }
 
     const leadData = {
       name,
-      email,
+      email: email || null,
       phone,
-      campaign,
+      campaign: company || null, // Mapear company para campaign temporariamente
       source: source || 'website',
       status: status || 'lead-bruto',
       priority: priority || 'medium',
-      notes
+      notes: notes || null
     };
 
-    console.log('📊 Dados do lead a serem inseridos (campanha:', campaign, '):', leadData);
+    console.log('📊 Dados do lead a serem inseridos (empresa:', company, '):', leadData);
 
     const { data, error } = await supabaseAdmin
       .from('leads')
@@ -117,7 +141,11 @@ router.post('/', authenticateApiKey, async (req, res) => {
     }
 
     console.log('✅ Lead criado com sucesso:', data);
-    res.status(201).json(data);
+    res.status(201).json({
+      success: true,
+      data: data,
+      message: 'Lead criado com sucesso'
+    });
   } catch (error) {
     console.error('❌ Erro geral:', error);
     res.status(500).json({ error: error.message });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { Lead } from '../../components/pipeline/LeadCard';
 
 interface NewLeadModalProps {
@@ -39,17 +40,48 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação básica
+    // Validação básica - apenas campos obrigatórios
     const newErrors: {[key: string]: string} = {};
-    if (!formData.name.trim()) newErrors.name = 'Nome é obrigatório';
-    if (!formData.email.trim()) newErrors.email = 'Email é obrigatório';
-    if (!formData.phone.trim()) newErrors.phone = 'Telefone é obrigatório';
-    if (!formData.company.trim()) newErrors.company = 'Empresa é obrigatória';
-    if (!formData.value) newErrors.value = 'Valor é obrigatório';
-    if (!formData.nextContact) newErrors.nextContact = 'Próximo contato é obrigatório';
+    const missingFields: string[] = [];
+    
+    if (!formData.name.trim()) {
+      newErrors.name = 'Nome é obrigatório';
+      missingFields.push('Nome');
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Telefone é obrigatório';
+      missingFields.push('Telefone');
+    }
+    if (!formData.priority) {
+      newErrors.priority = 'Prioridade é obrigatória';
+      missingFields.push('Prioridade');
+    }
+    if (!formData.fonte.trim()) {
+      newErrors.fonte = 'Fonte do lead é obrigatória';
+      missingFields.push('Fonte do Lead');
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      
+      // Mostrar toast com campos obrigatórios faltando
+      const missingFieldsText = missingFields.join(', ');
+      toast.error(
+        `Campos obrigatórios não preenchidos: ${missingFieldsText}`,
+        {
+          duration: 4000,
+          style: {
+            background: '#FEF2F2',
+            color: '#DC2626',
+            border: '1px solid #FECACA',
+            borderRadius: '12px',
+            padding: '16px',
+            fontSize: '14px',
+            fontWeight: '500'
+          },
+          icon: '⚠️'
+        }
+      );
       return;
     }
 
@@ -58,12 +90,31 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
       company: formData.company,
       phone: formData.phone,
       email: formData.email,
-      value: Number(formData.value),
+      value: Number(formData.value) || 0,
       priority: formData.priority,
       nextContact: formData.nextContact,
       status: 'prospecto',
-      isOverdue: false
+      isOverdue: false,
+      source: formData.fonte // Adicionar fonte
     });
+
+    // Mostrar toast de sucesso
+    toast.success(
+      `Lead "${formData.name}" criado com sucesso!`,
+      {
+        duration: 3000,
+        style: {
+          background: '#F0FDF4',
+          color: '#16A34A',
+          border: '1px solid #BBF7D0',
+          borderRadius: '12px',
+          padding: '16px',
+          fontSize: '14px',
+          fontWeight: '500'
+        },
+        icon: '✅'
+      }
+    );
 
     // Resetar formulário e fechar modal
     resetForm();
@@ -198,19 +249,15 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Email *
+                    Email
                   </label>
                   <input
                     type="email"
-                    required
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
-                      errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="email@empresa.com"
                   />
-                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
 
                 <div>
@@ -252,19 +299,15 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nome da Empresa *
+                    Nome da Empresa
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.company}
                     onChange={(e) => handleInputChange('company', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
-                      errors.company ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="Nome da empresa"
                   />
-                  {errors.company && <p className="text-red-500 text-xs mt-1">{errors.company}</p>}
                 </div>
 
                 <div>
@@ -343,21 +386,17 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Valor Estimado (R$) *
+                    Valor Estimado (R$)
                   </label>
                   <input
                     type="number"
-                    required
                     value={formData.value}
                     onChange={(e) => handleInputChange('value', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
-                      errors.value ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="0,00"
                     min="0"
                     step="0.01"
                   />
-                  {errors.value && <p className="text-red-500 text-xs mt-1">{errors.value}</p>}
                 </div>
 
                 <div>
@@ -379,38 +418,49 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Próximo Contato *
+                    Próximo Contato
                   </label>
                   <input
                     type="date"
-                    required
                     value={formData.nextContact}
                     onChange={(e) => handleInputChange('nextContact', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
-                      errors.nextContact ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.nextContact && <p className="text-red-500 text-xs mt-1">{errors.nextContact}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Fonte do Lead
+                    Fonte do Lead *
                   </label>
                   <select
                     value={formData.fonte}
                     onChange={(e) => handleInputChange('fonte', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                      errors.fonte ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    }`}
                   >
                     <option value="">Selecione a fonte</option>
-                    <option value="website">Website</option>
-                    <option value="linkedin">LinkedIn</option>
-                    <option value="indicacao">Indicação</option>
-                    <option value="evento">Evento</option>
-                    <option value="cold-call">Cold Call</option>
-                    <option value="email">Email Marketing</option>
-                    <option value="outros">Outros</option>
+                    <option value="whatsapp">📱 WhatsApp</option>
+                    <option value="instagram">📷 Instagram</option>
+                    <option value="facebook">👥 Facebook</option>
+                    <option value="website">🌐 Website</option>
+                    <option value="linkedin">💼 LinkedIn</option>
+                    <option value="google-ads">🔍 Google Ads</option>
+                    <option value="facebook-ads">📊 Facebook Ads</option>
+                    <option value="instagram-ads">📈 Instagram Ads</option>
+                    <option value="indicacao">🤝 Indicação</option>
+                    <option value="evento">🎪 Evento</option>
+                    <option value="feira">🏢 Feira/Exposição</option>
+                    <option value="cold-call">📞 Cold Call</option>
+                    <option value="email">📧 Email Marketing</option>
+                    <option value="youtube">📺 YouTube</option>
+                    <option value="tiktok">🎵 TikTok</option>
+                    <option value="twitter">🐦 Twitter/X</option>
+                    <option value="telefone">☎️ Telefone Direto</option>
+                    <option value="visita">🚪 Visita Presencial</option>
+                    <option value="outros">❓ Outros</option>
                   </select>
+                  {errors.fonte && <p className="text-red-500 text-xs mt-1">{errors.fonte}</p>}
                 </div>
               </div>
 

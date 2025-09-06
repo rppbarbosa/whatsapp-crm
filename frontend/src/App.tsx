@@ -4,9 +4,9 @@ import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import ConfirmEmail from './pages/auth/ConfirmEmail';
 import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
 import PipelineVendas from './pages/PipelineVendas';
@@ -25,31 +25,39 @@ function App() {
         <Router>
           <div className="App">
             <Routes>
-              {/* Rotas públicas (sem autenticação) */}
+              {/* Rotas de autenticação - não requerem login */}
               <Route path="/login" element={
                 <ProtectedRoute requireAuth={false}>
                   <Login />
                 </ProtectedRoute>
               } />
-              <Route path="/register" element={
-                <ProtectedRoute requireAuth={false}>
-                  <Register />
-                </ProtectedRoute>
-              } />
-              <Route path="/forgot-password" element={
-                <ProtectedRoute requireAuth={false}>
-                  <ForgotPassword />
-                </ProtectedRoute>
-              } />
+                              <Route path="/register" element={
+                                <ProtectedRoute requireAuth={false}>
+                                  <Register />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/confirm-email" element={
+                                <ProtectedRoute requireAuth={false}>
+                                  <ConfirmEmail />
+                                </ProtectedRoute>
+                              } />
               
-              {/* Rotas protegidas (com autenticação) */}
+              {/* Rota raiz - redireciona para dashboard */}
               <Route path="/" element={
                 <ProtectedRoute>
                   <Layout />
                 </ProtectedRoute>
               }>
                 <Route index element={<Dashboard />} />
-                <Route path="dashboard" element={<Dashboard />} />
+              </Route>
+              
+              {/* Rotas principais - requerem autenticação */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Dashboard />} />
                 <Route path="leads" element={<Leads />} />
                 <Route path="pipeline-vendas" element={<PipelineVendas />} />
                 <Route path="whatsapp" element={<WhatsAppBusinessSimple />} />

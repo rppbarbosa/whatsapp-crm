@@ -9,9 +9,12 @@ import {
   BarChart3, 
   Wrench,
   Menu,
-  X
+  X,
+  Power
 } from 'lucide-react';
 import { ThemeToggle } from './ui/ThemeToggle';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-hot-toast';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
@@ -26,9 +29,18 @@ const navItems = [
 export const Sidebar: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { logout } = useAuth();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const handleLogout = () => {
+    logout();
+    toast.success('Logout realizado com sucesso!');
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false);
+    }
   };
 
   return (
@@ -74,8 +86,17 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
           <ThemeToggle />
+          
+          {/* Botão de Logout */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 transform hover:scale-105"
+          >
+            <Power className="w-5 h-5" />
+            <span>Sair</span>
+          </button>
         </div>
       </div>
 
@@ -131,8 +152,17 @@ export const Sidebar: React.FC = () => {
           </nav>
 
           {/* Footer Mobile */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
             <ThemeToggle />
+            
+            {/* Botão de Logout Mobile */}
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 transform hover:scale-105"
+            >
+              <Power className="w-5 h-5" />
+              <span>Sair</span>
+            </button>
           </div>
         </div>
       </div>

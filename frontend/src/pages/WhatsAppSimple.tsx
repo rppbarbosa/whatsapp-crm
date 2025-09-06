@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { 
-  QrCode, 
-  Smartphone, 
   Wifi, 
   WifiOff, 
   RefreshCw, 
   Play, 
-  Square, 
   Send,
   MessageCircle,
   Users

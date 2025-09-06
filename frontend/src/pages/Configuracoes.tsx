@@ -13,7 +13,6 @@ import {
   Upload,
   Trash2,
   Save,
-  Edit,
   MessageCircle,
   RefreshCw
 } from 'lucide-react';

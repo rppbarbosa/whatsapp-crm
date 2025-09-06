@@ -1,0 +1,20 @@
+[33mcommit 4ba71ff2bd014b24e2cf1181d82b63c6d78a9c1f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: rppbarbosa <rony@ronypetersonadv.com>
+Date:   Fri Sep 5 10:23:42 2025 -0300
+
+    feat: implementa melhorias no sistema WhatsApp
+    
+    - Adiciona funcionalidades avançadas de chat no ChatView
+    - Implementa hooks otimizados para estado do WhatsApp
+    - Melhora serviços de API e integração WPPConnect
+    - Atualiza componentes do Dashboard e WhatsApp Business
+    - Adiciona novas rotas e endpoints para WhatsApp
+    - Melhora gerenciamento de estado e comunicação em tempo real
+
+backend/src/routes/whatsappWPPConnect.js
+backend/src/services/wppconnectService.js
+frontend/src/components/whatsapp/ChatView.tsx
+frontend/src/hooks/useWhatsAppStateSimple.ts
+frontend/src/pages/Dashboard.tsx
+frontend/src/pages/WhatsAppBusinessSimple.tsx
+frontend/src/services/apiSimple.ts

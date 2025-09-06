@@ -251,11 +251,19 @@ router.post('/chats/:chatId/mark-read', async (req, res) => {
     
     console.log(`📖 Marcando mensagens como lidas para: ${chatId.substring(0, 20)}...`);
     
-    const result = await wppconnectService.markChatAsRead(chatId);
+    // Marcar como lida no nosso sistema de rastreamento
+    const result = wppconnectService.markMessagesAsRead(chatId);
+    
+    // Também marcar como lida no WhatsApp (se disponível)
+    try {
+      await wppconnectService.markChatAsRead(chatId);
+    } catch (error) {
+      console.log('⚠️ Erro ao marcar como lida no WhatsApp:', error.message);
+    }
     
     res.json({
       success: result.success,
-      message: result.success ? 'Mensagens marcadas como lidas' : result.error
+      message: result.message
     });
   } catch (error) {
     console.error('❌ Erro ao marcar como lida:', error);

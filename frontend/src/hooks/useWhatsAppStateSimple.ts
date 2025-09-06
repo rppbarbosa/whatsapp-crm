@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { whatsappApi, WhatsAppStatus, Chat, Message } from '../services/apiSimple';
+import { useMessageCache } from './useMessageCache';
 
 export const useWhatsAppStateSimple = () => {
   const [status, setStatus] = useState<WhatsAppStatus>({
@@ -16,6 +17,16 @@ export const useWhatsAppStateSimple = () => {
   const [totalMessages, setTotalMessages] = useState(0);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+
+  // Refs para controle de scroll
+  const isInitialLoad = useRef(false);
+  const previousMessagesLength = useRef(0);
+
+  // Hook de cache de mensagens
+  const {
+    getCachedMessages,
+    saveMessages
+  } = useMessageCache();
 
   // Carregar status do WhatsApp
   const loadStatus = useCallback(async () => {
@@ -72,12 +83,40 @@ export const useWhatsAppStateSimple = () => {
       console.log('📱 Carregando mensagens para:', chatId.substring(0, 20) + '...');
       setLoadingHistory(loadHistory);
       
+      // Primeiro, sempre carregar do cache se disponível
+      const cachedMessages = getCachedMessages(chatId);
+      if (cachedMessages.length > 0) {
+        console.log('📦 Carregando mensagens do cache:', cachedMessages.length);
+        setMessages(cachedMessages);
+        setTotalMessages(cachedMessages.length);
+        setHasMoreHistory(cachedMessages.length >= 50);
+        
+        // Se não é carregamento de histórico, usar cache e retornar
+        if (!loadHistory) {
+          setLoadingHistory(false);
+          return;
+        }
+      }
+      
+      // Buscar do backend para sincronizar
       const response = await whatsappApi.getMessages(chatId, 50, loadHistory);
       if (response.data.success) {
-        console.log('✅ Mensagens carregadas:', response.data.data.length);
+        console.log('✅ Mensagens carregadas do backend:', response.data.data.length);
         console.log('📚 Total de mensagens no histórico:', response.data.totalMessages);
         
-        setMessages(response.data.data);
+        // Mesclar com cache se existir
+        let finalMessages = response.data.data;
+        if (cachedMessages.length > 0) {
+          const backendTimestamps = new Set(response.data.data.map(m => m.timestamp));
+          const newCachedMessages = cachedMessages.filter(m => !backendTimestamps.has(m.timestamp));
+          finalMessages = [...response.data.data, ...newCachedMessages]
+            .sort((a, b) => a.timestamp - b.timestamp);
+        }
+        
+        // Salvar no cache
+        saveMessages(chatId, finalMessages, response.data.totalMessages || 0);
+        
+        setMessages(finalMessages);
         setHasMoreHistory(response.data.hasMoreHistory || false);
         setTotalMessages(response.data.totalMessages || 0);
         
@@ -89,19 +128,34 @@ export const useWhatsAppStateSimple = () => {
         }
       } else {
         console.log('❌ Erro ao carregar mensagens:', response.data);
+        // Se erro, usar cache se disponível
+        if (cachedMessages.length > 0) {
+          setMessages(cachedMessages);
+          setTotalMessages(cachedMessages.length);
+          setHasMoreHistory(cachedMessages.length >= 50);
+        } else {
+          setMessages([]);
+          setHasMoreHistory(false);
+          setTotalMessages(0);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar mensagens:', error);
+      // Se erro, usar cache se disponível
+      const cachedMessages = getCachedMessages(chatId);
+      if (cachedMessages.length > 0) {
+        setMessages(cachedMessages);
+        setTotalMessages(cachedMessages.length);
+        setHasMoreHistory(cachedMessages.length >= 50);
+      } else {
         setMessages([]);
         setHasMoreHistory(false);
         setTotalMessages(0);
       }
-    } catch (error) {
-      console.error('❌ Erro ao carregar mensagens:', error);
-      setMessages([]);
-      setHasMoreHistory(false);
-      setTotalMessages(0);
     } finally {
       setLoadingHistory(false);
     }
-  }, []);
+  }, [getCachedMessages, saveMessages]);
 
   // Carregar mensagens anteriores (scroll infinito)
   const loadEarlierMessages = useCallback(async () => {
@@ -163,12 +217,44 @@ export const useWhatsAppStateSimple = () => {
 
   // Selecionar conversa
   const selectChat = useCallback((chat: Chat) => {
+    console.log('👤 Selecionando conversa:', chat.name);
     setSelectedChat(chat);
-    setMessages([]); // Limpar mensagens anteriores
-    setHasMoreHistory(false);
-    setTotalMessages(0);
-    loadMessages(chat.id, true); // Carregar com histórico por padrão
-  }, [loadMessages]);
+    setShouldAutoScroll(true); // Sempre ativa scroll ao abrir nova conversa
+    isInitialLoad.current = true; // Força scroll na primeira carga
+    previousMessagesLength.current = 0; // Reset contador
+    
+    // Carregar mensagens da conversa selecionada
+    loadMessages(chat.id, true); // Sempre carregar histórico ao selecionar
+    
+    // Forçar sincronização imediata para detectar mensagens novas
+    setTimeout(async () => {
+      try {
+        const response = await whatsappApi.getMessages(chat.id, 50, false);
+        if (response.data.success) {
+          const backendMessages = response.data.data;
+          const cachedMessages = getCachedMessages(chat.id);
+          
+          // Verificar se há mensagens novas
+          const cachedTimestamps = new Set(cachedMessages.map(m => m.timestamp));
+          const newMessages = backendMessages.filter(m => !cachedTimestamps.has(m.timestamp));
+          
+          if (newMessages.length > 0) {
+            console.log(`🔄 Sincronização: ${newMessages.length} mensagens novas encontradas`);
+            
+            // Mesclar e salvar
+            const allMessages = [...cachedMessages, ...newMessages]
+              .sort((a, b) => a.timestamp - b.timestamp);
+            
+            saveMessages(chat.id, allMessages, response.data.totalMessages || 0);
+            setMessages(allMessages);
+            setTotalMessages(response.data.totalMessages || 0);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro na sincronização:', error);
+      }
+    }, 500);
+  }, [loadMessages, getCachedMessages, saveMessages]);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -212,28 +298,86 @@ export const useWhatsAppStateSimple = () => {
     if (selectedChat && status.status === 'connected' && !isUserScrolling) {
       console.log('🔄 Iniciando polling de mensagens para:', selectedChat.name);
       
-      const interval = setInterval(() => {
+      const interval = setInterval(async () => {
         if (!isUserScrolling) {
-          // console.log('🔄 Atualizando mensagens automaticamente...');
-          loadMessages(selectedChat.id, false); // Sem histórico no polling para ser mais rápido
+          try {
+            // Buscar mensagens do backend para detectar novas
+            const response = await whatsappApi.getMessages(selectedChat.id, 50, false);
+            if (response.data.success) {
+              const backendMessages = response.data.data;
+              const cachedMessages = getCachedMessages(selectedChat.id);
+              
+              // Verificar se há mensagens novas comparando timestamps
+              const cachedTimestamps = new Set(cachedMessages.map(m => m.timestamp));
+              const newMessages = backendMessages.filter(m => !cachedTimestamps.has(m.timestamp));
+              
+              if (newMessages.length > 0) {
+                console.log(`🆕 ${newMessages.length} mensagens novas detectadas para ${selectedChat.name}`);
+                
+                // Mesclar mensagens: cache + novas, ordenadas por timestamp
+                const allMessages = [...cachedMessages, ...newMessages]
+                  .sort((a, b) => a.timestamp - b.timestamp);
+                
+                // Salvar no cache
+                saveMessages(selectedChat.id, allMessages, response.data.totalMessages || 0);
+                
+                // Atualizar estado
+                setMessages(allMessages);
+                setTotalMessages(response.data.totalMessages || 0);
+                
+                // Notificar usuário sobre nova mensagem
+                if (newMessages.some(m => !m.isFromMe)) {
+                  toast.success(`📨 Nova mensagem de ${selectedChat.name}`, {
+                    duration: 2000,
+                    icon: '📨'
+                  });
+                }
+              } else {
+                // Mesmo sem mensagens novas, atualizar estado com cache
+                setMessages(cachedMessages);
+              }
+            }
+          } catch (error) {
+            console.error('❌ Erro no polling de mensagens:', error);
+          }
         }
-      }, 10000); // Reduzido para 10 segundos
+      }, 2000); // Reduzido para 2 segundos para detectar mensagens mais rapidamente
 
       return () => {
         console.log('⏹️ Parando polling de mensagens');
         clearInterval(interval);
       };
     }
-  }, [selectedChat, status.status, loadMessages, isUserScrolling]);
+  }, [selectedChat, status.status, isUserScrolling, getCachedMessages, saveMessages]);
 
   // Polling para atualizar lista de conversas (para contador não lidas)
   useEffect(() => {
     if (status.status === 'connected') {
       console.log('🔄 Iniciando polling de conversas para contadores não lidas...');
       
-      const interval = setInterval(() => {
-        // console.log('📊 Atualizando lista de conversas...');
-        loadChats();
+      const interval = setInterval(async () => {
+        try {
+          // Atualizar lista de conversas
+          await loadChats();
+          
+          // Para cada conversa com mensagens não lidas, atualizar cache
+          const chatsWithUnread = chats.filter(chat => chat.unreadCount && chat.unreadCount > 0);
+          
+          for (const chat of chatsWithUnread) {
+            try {
+              const response = await whatsappApi.getMessages(chat.id, 50, false);
+              if (response.data.success) {
+                // Atualizar cache com mensagens mais recentes
+                saveMessages(chat.id, response.data.data, response.data.totalMessages || 0);
+                console.log(`📦 Cache atualizado para ${chat.name} (${chat.unreadCount} não lidas)`);
+              }
+            } catch (error) {
+              console.error(`❌ Erro ao atualizar cache para ${chat.name}:`, error);
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro no polling de conversas:', error);
+        }
       }, 30000); // Reduzido para 30 segundos
 
       return () => {
@@ -241,7 +385,7 @@ export const useWhatsAppStateSimple = () => {
         clearInterval(interval);
       };
     }
-  }, [status.status, loadChats]);
+  }, [status.status, loadChats, chats, saveMessages]);
 
   return {
     status,

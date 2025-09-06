@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+// import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { 
   User, 
@@ -26,7 +26,12 @@ const Register: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   
-  const { register } = useAuth();
+  // const { register } = useAuth();
+  const register = async (name: string, email: string, password: string) => {
+    // Simular registro
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  };
   const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MoreVertical,
   Phone,
@@ -21,6 +21,7 @@ export interface Lead {
   nextContact: string;
   status: 'prospecto' | 'contato' | 'proposta' | 'negociacao' | 'fechado' | 'perdido';
   isOverdue: boolean;
+  source?: string;
   tasks?: Task[];
 }
 
@@ -44,6 +45,39 @@ interface LeadCardProps {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, onMove, onSchedule, isMenuOpen, onMenuToggle }) => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        if (isMenuOpen) {
+          onMenuToggle();
+        }
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isMenuOpen) {
+        onMenuToggle();
+      }
+    };
+
+    // Fechar dropdown quando modal de detalhes for aberto
+    if (showDetailsModal && isMenuOpen) {
+      onMenuToggle();
+    }
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isMenuOpen, onMenuToggle, showDetailsModal]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -57,16 +91,28 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onMove, onSchedule, isMenuOpe
   const handleMoveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onMove(lead);
+    // Fechar dropdown quando abrir modal de movimentação
+    if (isMenuOpen) {
+      onMenuToggle();
+    }
   };
 
   const handleDetailsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowDetailsModal(true);
+    // Fechar dropdown quando abrir modal
+    if (isMenuOpen) {
+      onMenuToggle();
+    }
   };
 
   const handleScheduleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSchedule(lead);
+    // Fechar dropdown quando abrir modal de agendamento
+    if (isMenuOpen) {
+      onMenuToggle();
+    }
   };
 
   return (
@@ -85,7 +131,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onMove, onSchedule, isMenuOpe
           </div>
           
           {/* Menu de Ações */}
-          <div className="relative ml-3 flex-shrink-0">
+          <div className="relative ml-3 flex-shrink-0" ref={dropdownRef}>
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -98,7 +144,13 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onMove, onSchedule, isMenuOpe
             </button>
             
             {isMenuOpen && (
-              <div className="absolute right-0 top-8 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-[9999] min-w-[200px] py-1">
+              <>
+                {/* Overlay invisível para capturar cliques fora */}
+                <div 
+                  className="fixed inset-0 z-[9998]" 
+                  onClick={() => onMenuToggle()}
+                />
+                <div className="dropdown-menu absolute right-0 top-8 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-[9999] min-w-[200px] py-1">
                 <button
                   onClick={handleMoveClick}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center"
@@ -121,7 +173,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onMove, onSchedule, isMenuOpe
                   <Calendar className="w-4 h-4 mr-2" />
                   Agendar contato
                 </button>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>

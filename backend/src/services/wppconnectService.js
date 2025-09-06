@@ -9,6 +9,10 @@ class WPPConnectService {
     this.status = 'disconnected';
     this.isInitializing = false;
     
+    // Sistema de rastreamento de mensagens não lidas
+    this.unreadMessages = new Map(); // chatId -> count
+    this.lastReadMessages = new Map(); // chatId -> lastReadMessageId
+    
     console.log('🚀 WPPConnect Service inicializado');
     
     // Tentar conectar automaticamente se houver sessão salva
@@ -192,17 +196,33 @@ class WPPConnectService {
       // Usar listChats em vez de getAllChats (função depreciada)
       const chats = await this.client.listChats();
       
-      // Converter para nosso formato
-      const formattedChats = chats.map(chat => ({
-        id: chat.id._serialized,
-        name: chat.name || chat.contact?.pushname || chat.contact?.name || 'Sem nome',
-        isGroup: chat.isGroup,
-        lastMessage: chat.lastMessage ? {
-          body: chat.lastMessage.body || '',
-          timestamp: chat.lastMessage.timestamp,
-          from: chat.lastMessage.from
-        } : null,
-        unreadCount: chat.unreadCount || 0
+      // Converter para nosso formato e buscar última mensagem
+      const formattedChats = await Promise.all(chats.map(async (chat) => {
+        let lastMessage = null;
+        
+        try {
+          // Buscar última mensagem do chat
+          const messages = await this.client.getAllMessagesInChat(chat.id._serialized, true, false);
+          if (messages && messages.length > 0) {
+            // Pegar a última mensagem (mais recente)
+            const lastMsg = messages[messages.length - 1];
+            lastMessage = {
+              body: lastMsg.body || lastMsg.caption || '',
+              timestamp: lastMsg.timestamp,
+              from: lastMsg.from
+            };
+          }
+        } catch (msgError) {
+          console.log(`⚠️ Erro ao buscar última mensagem do chat ${chat.id._serialized}:`, msgError.message);
+        }
+        
+        return {
+          id: chat.id._serialized,
+          name: chat.name || chat.contact?.pushname || chat.contact?.name || 'Sem nome',
+          isGroup: chat.isGroup,
+          lastMessage: lastMessage,
+          unreadCount: this.unreadMessages.get(chat.id._serialized) || 0
+        };
       }));
 
       console.log(`✅ ${formattedChats.length} conversas encontradas`);
@@ -231,34 +251,48 @@ class WPPConnectService {
         };
       }
 
-      // console.log(`📱 Obtendo mensagens do chat via WPPConnect: ${chatId.substring(0, 20)}...`);
+      console.log(`📱 Obtendo mensagens do chat via WPPConnect: ${chatId.substring(0, 20)}...`);
       
       let messages = [];
       
       if (loadHistory) {
         console.log('🔄 Carregando histórico completo de mensagens...');
         try {
-          // Tentar carregar histórico completo (função pode não existir em algumas versões)
-          if (typeof this.client.loadAndGetAllMessagesInChat === 'function') {
-            messages = await this.client.loadAndGetAllMessagesInChat(chatId, true, false);
-            console.log(`📚 ${messages.length} mensagens carregadas do histórico completo`);
-          } else {
-            console.log('⚠️ Função loadAndGetAllMessagesInChat não disponível, usando método padrão');
-            messages = await this.client.getAllMessagesInChat(chatId, true, false);
-          }
+          // Tentar carregar histórico completo
+          messages = await this.client.loadAndGetAllMessagesInChat(chatId, true, false);
+          console.log(`📚 ${messages.length} mensagens carregadas do histórico completo`);
         } catch (historyError) {
           console.log('⚠️ Erro ao carregar histórico completo, usando método padrão:', historyError.message);
           // Fallback para método padrão se loadAndGetAllMessagesInChat falhar
           messages = await this.client.getAllMessagesInChat(chatId, true, false);
+          
+          // Se ainda não temos mensagens suficientes, tentar novamente
+          if (!messages || messages.length < 2) {
+            console.log('⚠️ Poucas mensagens encontradas, tentando novamente...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            messages = await this.client.getAllMessagesInChat(chatId, true, false);
+            console.log(`📚 Nova tentativa: ${messages.length} mensagens carregadas`);
+          }
         }
       } else {
         // Método padrão (apenas mensagens já carregadas)
         messages = await this.client.getAllMessagesInChat(chatId, true, false);
       }
       
-      // Limitar e formatar mensagens (pegar as mais recentes)
-      const limitedMessages = messages.slice(-limit);
-      const formattedMessages = limitedMessages.map(msg => ({
+      // Garantir que temos um array válido
+      if (!Array.isArray(messages)) {
+        console.error('❌ Resposta inválida do WPPConnect');
+        return {
+          success: false,
+          error: 'Resposta inválida do WPPConnect',
+          data: [],
+          totalMessages: 0,
+          hasMoreHistory: false
+        };
+      }
+
+      // Formatar mensagens
+      const formattedMessages = messages.map(msg => ({
         id: msg.id,
         body: msg.body || msg.caption || '',
         timestamp: msg.timestamp,
@@ -266,14 +300,14 @@ class WPPConnectService {
         to: msg.to,
         isFromMe: msg.fromMe,
         type: msg.type || 'text',
-        author: msg.author || null, // Para grupos
+        author: msg.author || null,
         quotedMsg: msg.quotedMsg ? {
           body: msg.quotedMsg.body || '',
           author: msg.quotedMsg.author
         } : null
       }));
 
-      // console.log(`✅ ${formattedMessages.length} mensagens formatadas (${messages.length} total)`);
+      console.log(`✅ ${formattedMessages.length} mensagens formatadas`);
       return {
         success: true,
         data: formattedMessages,
@@ -440,6 +474,21 @@ class WPPConnectService {
     }
   }
 
+  // Marcar mensagens como lidas
+  markMessagesAsRead(chatId) {
+    if (this.unreadMessages.has(chatId)) {
+      this.unreadMessages.set(chatId, 0);
+      console.log(`📖 Mensagens marcadas como lidas para ${chatId.substring(0, 20)}...`);
+      return { success: true, message: 'Mensagens marcadas como lidas' };
+    }
+    return { success: true, message: 'Nenhuma mensagem não lida encontrada' };
+  }
+
+  // Obter contagem de mensagens não lidas
+  getUnreadCount(chatId) {
+    return this.unreadMessages.get(chatId) || 0;
+  }
+
   // Health check
   async healthCheck() {
     return {
@@ -463,7 +512,7 @@ class WPPConnectService {
     console.log('🔌 Configurando listeners de mensagens...');
 
     // Listener para mensagens recebidas
-    this.client.onMessage((message) => {
+    this.client.onMessage(async (message) => {
       console.log('📨 Mensagem recebida:', {
         from: message.from,
         body: message.body?.substring(0, 50) + '...',
@@ -471,18 +520,65 @@ class WPPConnectService {
         timestamp: new Date(message.timestamp * 1000).toLocaleString()
       });
 
-      // Aqui você pode adicionar lógica para salvar no banco de dados
-      // ou notificar o frontend via WebSocket se necessário
+      // Rastrear mensagens não lidas apenas para mensagens recebidas (não enviadas)
+      if (!message.fromMe) {
+        const chatId = message.from;
+        const currentCount = this.unreadMessages.get(chatId) || 0;
+        this.unreadMessages.set(chatId, currentCount + 1);
+        console.log(`📊 Mensagem não lida adicionada para ${chatId.substring(0, 20)}... (total: ${currentCount + 1})`);
+      }
+
+      // Não fazer carregamento automático aqui para evitar conflitos
+      // O frontend já tem polling que vai detectar as mudanças
     });
 
     // Listener para mensagens enviadas
-    this.client.onAnyMessage((message) => {
+    this.client.onAnyMessage(async (message) => {
       if (message.fromMe) {
         console.log('📤 Mensagem enviada confirmada:', {
           to: message.to,
           body: message.body?.substring(0, 50) + '...',
           timestamp: new Date(message.timestamp * 1000).toLocaleString()
         });
+
+        try {
+          // Carregar mensagens atualizadas do chat
+          const chatId = message.to;
+          const messages = await this.client.getAllMessagesInChat(chatId, true, false);
+          
+          // Formatar e retornar as últimas 50 mensagens
+          const formattedMessages = messages.slice(-50).map(msg => ({
+            id: msg.id,
+            body: msg.body || msg.caption || '',
+            timestamp: msg.timestamp,
+            from: msg.from,
+            to: msg.to,
+            isFromMe: msg.fromMe,
+            type: msg.type || 'text',
+            author: msg.author || null,
+            quotedMsg: msg.quotedMsg ? {
+              body: msg.quotedMsg.body || '',
+              author: msg.quotedMsg.author
+            } : null
+          }));
+
+          // Notificar o frontend via API
+          fetch(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/whatsapp/notify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': process.env.EVOLUTION_API_KEY || 'whatsapp-crm-evolution-key-2024-secure'
+            },
+            body: JSON.stringify({
+              chatId,
+              messages: formattedMessages,
+              totalMessages: messages.length,
+              hasMoreHistory: messages.length > 50
+            })
+          });
+        } catch (error) {
+          console.error('❌ Erro ao processar mensagem enviada:', error);
+        }
       }
     });
 

@@ -2,20 +2,19 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 
 interface User {
   id: string;
-  email: string;
   name: string;
+  email: string;
   createdAt: string;
-  isActive: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  refreshUser: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,130 +23,211 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Chave para localStorage
+const AUTH_STORAGE_KEY = 'whatsapp_crm_auth';
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Verificar se há token salvo ao inicializar
+  // Verificar se há usuário salvo no localStorage
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkStoredAuth = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          // TODO: Validar token com backend
-          // Por enquanto, vamos simular um usuário
-          const savedUser = localStorage.getItem('auth_user');
-          if (savedUser) {
-            setUser(JSON.parse(savedUser));
+        const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+        
+        if (storedAuth) {
+          const authData = JSON.parse(storedAuth);
+          
+          if (authData.token && authData.user) {
+            // Verificar se o token ainda é válido no backend
+            const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/auth/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': 'whatsapp-crm-evolution-key-2024-secure',
+                'Authorization': `Bearer ${authData.token}`
+              }
+            });
+            
+            if (response.ok) {
+              setUser(authData.user);
+              setIsAuthenticated(true);
+            } else {
+              // Token inválido, limpar localStorage
+              localStorage.removeItem(AUTH_STORAGE_KEY);
+              setUser(null);
+              setIsAuthenticated(false);
+            }
+          } else {
+            // Dados inválidos, limpar localStorage
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+            setUser(null);
+            setIsAuthenticated(false);
           }
         }
       } catch (error) {
-        console.error('Erro ao verificar autenticação:', error);
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+        console.error('Erro ao verificar autenticação salva:', error);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkAuth();
+    checkStoredAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      setIsLoading(true);
-      
-      // TODO: Implementar chamada real para API
-      // Por enquanto, vamos simular um login bem-sucedido
-      const mockUser: User = {
-        id: 'user-123',
-        email,
-        name: 'Usuário Teste',
-        createdAt: new Date().toISOString(),
-        isActive: true
-      };
+      if (!email || !password) {
+        return { success: false, error: 'Email e senha são obrigatórios' };
+      }
 
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fazer requisição para o backend para verificar credenciais
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'whatsapp-crm-evolution-key-2024-secure'
+        },
+        body: JSON.stringify({ email, password })
+      });
 
-      // Salvar dados de autenticação
-      localStorage.setItem('auth_token', 'mock-jwt-token');
-      localStorage.setItem('auth_user', JSON.stringify(mockUser));
-      
-      setUser(mockUser);
-      return true;
-      
-    } catch (error) {
-      console.error('Erro no login:', error);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const data = await response.json();
 
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      
-      // TODO: Implementar chamada real para API
-      // Por enquanto, vamos simular um cadastro bem-sucedido
-      const mockUser: User = {
-        id: 'user-' + Date.now(),
-        email,
-        name,
-        createdAt: new Date().toISOString(),
-        isActive: true
-      };
+      if (response.ok && data.success) {
+        // Salvar token no localStorage
+        const token = data.token || `token_${Date.now()}`;
+        const userData: User = {
+          id: data.user?.id || Date.now().toString(),
+          name: data.user?.name || email.split('@')[0],
+          email: email,
+          createdAt: data.user?.createdAt || new Date().toISOString()
+        };
 
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+        // Salvar token e dados do usuário
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user: userData }));
+        setUser(userData);
+        setIsAuthenticated(true);
 
-      // Salvar dados de autenticação
-      localStorage.setItem('auth_token', 'mock-jwt-token');
-      localStorage.setItem('auth_user', JSON.stringify(mockUser));
-      
-      setUser(mockUser);
-      return true;
-      
-    } catch (error) {
-      console.error('Erro no cadastro:', error);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
-    setUser(null);
-  };
-
-  const refreshUser = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        // TODO: Implementar chamada real para API
-        // Por enquanto, vamos manter o usuário atual
-        const savedUser = localStorage.getItem('auth_user');
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        }
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'Credenciais inválidas' };
       }
     } catch (error) {
-      console.error('Erro ao atualizar usuário:', error);
-      logout();
+      console.error('Erro no login:', error);
+      return { success: false, error: 'Erro de conexão com o servidor' };
+    }
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Validação básica
+      if (!name || !email || !password) {
+        return { success: false, error: 'Todos os campos são obrigatórios' };
+      }
+
+      if (!email.includes('@')) {
+        return { success: false, error: 'Email inválido' };
+      }
+
+      if (password.length < 6) {
+        return { success: false, error: 'Senha deve ter pelo menos 6 caracteres' };
+      }
+
+      // Simular delay de rede
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verificar se já existe usuário com este email
+      const existingAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (existingAuth) {
+        const existingUser = JSON.parse(existingAuth);
+        if (existingUser.email === email) {
+          return { success: false, error: 'Usuário já existe com este email' };
+        }
+      }
+
+      const userData: User = {
+        id: Date.now().toString(),
+        name: name,
+        email: email,
+        createdAt: new Date().toISOString()
+      };
+
+      // Salvar no localStorage
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
+      setUser(userData);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Erro no registro:', error);
+      return { success: false, error: 'Erro interno do servidor' };
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Notificar o backend sobre o logout (opcional)
+      const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (storedAuth) {
+        const authData = JSON.parse(storedAuth);
+        if (authData.token) {
+          try {
+            await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/auth/logout`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': 'whatsapp-crm-evolution-key-2024-secure',
+                'Authorization': `Bearer ${authData.token}`
+              }
+            });
+          } catch (error) {
+            console.error('Erro ao notificar logout no backend:', error);
+          }
+        }
+      }
+
+      // Limpar localStorage e estado
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Erro no logout:', error);
+      // Mesmo com erro, limpar dados locais
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+  };
+
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!email || !email.includes('@')) {
+        return { success: false, error: 'Email inválido' };
+      }
+
+      // Simular delay de rede
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Em um sistema real, aqui enviaríamos um email
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao resetar senha:', error);
+      return { success: false, error: 'Erro interno do servidor' };
     }
   };
 
   const value: AuthContextType = {
     user,
-    isAuthenticated: !!user,
+    isAuthenticated,
     isLoading,
     login,
     register,
     logout,
-    refreshUser
+    resetPassword
   };
 
   return (

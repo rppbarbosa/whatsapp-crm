@@ -45,16 +45,24 @@ export default function Leads() {
   const handleAddLead = async (newLead: Omit<Lead, 'id' | 'tasks'>) => {
     try {
       const leadData = {
-        ...newLead,
-        source: 'manual',
+        name: newLead.name,
+        email: newLead.email || null,
+        phone: newLead.phone,
+        company: newLead.company || null,
+        value: newLead.value || null,
+        priority: newLead.priority,
+        nextContact: newLead.nextContact || null,
+        source: newLead.source || 'manual',
+        status: 'lead-bruto',
         notes: ''
       };
       
       const response = await whatsappApi.post('/api/leads', leadData);
-      if (response.data.success) {
-        toast.success('Lead criado com sucesso!');
+      if (response.data && response.data.success) {
         setShowAddModal(false);
-    loadLeads();
+        loadLeads();
+      } else {
+        throw new Error(response.data?.error || 'Erro ao criar lead');
       }
     } catch (error) {
       console.error('Erro ao criar lead:', error);

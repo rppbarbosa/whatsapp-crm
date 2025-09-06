@@ -1,0 +1,8 @@
+ backend/src/routes/whatsappWPPConnect.js      | 133 [32m++++++++++++++++++++++++[m[31m-[m
+ backend/src/services/wppconnectService.js     | 136 [32m++++++++++++++++++++++++[m[31m--[m
+ frontend/src/components/whatsapp/ChatView.tsx | 102 [32m++++++++++++++++++[m[31m-[m
+ frontend/src/hooks/useWhatsAppStateSimple.ts  | 108 [32m+++++++++++++++++[m[31m---[m
+ frontend/src/pages/Dashboard.tsx              |   6 [32m+[m[31m-[m
+ frontend/src/pages/WhatsAppBusinessSimple.tsx |  18 [32m+++[m[31m-[m
+ frontend/src/services/apiSimple.ts            |  33 [32m++++++[m[31m-[m
+ 7 files changed, 495 insertions(+), 41 deletions(-)
