@@ -11,7 +11,6 @@ import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
 import PipelineVendas from './pages/PipelineVendas';
 import WhatsAppBusinessSimple from './pages/WhatsAppBusinessSimple';
-import WhatsAppSimple from './pages/WhatsAppSimple';
 import GerenciarInstanciasSimple from './pages/GerenciarInstanciasSimple';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
@@ -58,13 +57,55 @@ function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<Dashboard />} />
-                <Route path="leads" element={<Leads />} />
-                <Route path="pipeline-vendas" element={<PipelineVendas />} />
-                <Route path="whatsapp" element={<WhatsAppBusinessSimple />} />
-                <Route path="whatsapp-simple" element={<WhatsAppSimple />} />
-                <Route path="gerenciar-instancias" element={<GerenciarInstanciasSimple />} />
-                <Route path="relatorios" element={<Relatorios />} />
-                <Route path="configuracoes" element={<Configuracoes />} />
+              </Route>
+
+              {/* Rotas diretas para cada página */}
+              <Route path="/leads" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Leads />} />
+              </Route>
+
+              <Route path="/pipeline-vendas" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<PipelineVendas />} />
+              </Route>
+
+              <Route path="/whatsapp" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<WhatsAppBusinessSimple />} />
+              </Route>
+
+              <Route path="/gerenciar-instancias" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<GerenciarInstanciasSimple />} />
+              </Route>
+
+              <Route path="/relatorios" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Relatorios />} />
+              </Route>
+
+              <Route path="/configuracoes" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Configuracoes />} />
               </Route>
             </Routes>
             <Toaster

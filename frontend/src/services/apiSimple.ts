@@ -40,6 +40,18 @@ export interface Chat {
   unreadCount: number;
 }
 
+export interface MediaInfo {
+  type: string;
+  hasMedia: boolean;
+  filename?: string;
+  mimetype?: string;
+  size?: number;
+  duration?: number;
+  thumbnail?: string;
+  url?: string;
+  error?: string;
+}
+
 export interface Message {
   id: string;
   body: string;
@@ -53,6 +65,10 @@ export interface Message {
     body: string;
     author: string;
   };
+  mediaInfo?: MediaInfo;
+  mediaUrl?: string;
+  mediaName?: string;
+  mediaSize?: number;
 }
 
 export interface MessagesResponse {
@@ -91,6 +107,10 @@ export const whatsappApi = {
   // Enviar mensagem
   sendMessage: (to: string, message: string): Promise<{ data: { success: boolean; data: { messageId: string } } }> =>
     api.post('/api/whatsapp/send', { to, message }),
+
+  // Enviar mídia
+  sendMedia: (to: string, media: string, filename: string, mimetype: string, caption?: string): Promise<{ data: { success: boolean; data: { messageId: string } } }> =>
+    api.post('/api/whatsapp/send-media', { to, media, filename, mimetype, caption }),
 
   // Marcar conversa como lida
   markChatAsRead: (chatId: string): Promise<{ data: { success: boolean; message: string } }> =>

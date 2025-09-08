@@ -110,16 +110,25 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
-    if (diffInHours < 1) {
-      const diffInMinutes = Math.floor(diffInHours * 60);
+    if (diffInMinutes < 1) {
+      return 'agora';
+    } else if (diffInMinutes < 60) {
       return `${diffInMinutes}m`;
     } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h`;
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInHours}h`;
+    } else if (diffInDays < 7) {
       return `${diffInDays}d`;
+    } else {
+      // Para datas mais antigas, mostrar a data
+      return date.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit' 
+      });
     }
   };
 

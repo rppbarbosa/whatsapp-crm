@@ -95,7 +95,15 @@ router.post('/', authenticateApiKey, async (req, res) => {
       source, 
       status, 
       notes, 
-      tags 
+      tags,
+      // Novos campos do modal
+      cargo,
+      linkedin,
+      website,
+      setor,
+      tamanhoEmpresa,
+      industria,
+      observacoes
     } = req.body;
 
     // Validação básica - apenas campos obrigatórios
@@ -120,11 +128,21 @@ router.post('/', authenticateApiKey, async (req, res) => {
       name,
       email: email || null,
       phone,
-      campaign: company || null, // Mapear company para campaign temporariamente
+      campaign: company || null, // Mapear company para campaign (campo existente)
       source: source || 'website',
       status: status || 'lead-bruto',
       priority: priority || 'medium',
-      notes: notes || null
+      notes: notes || observacoes || null,
+      // Novos campos
+      cargo: cargo || null,
+      linkedin: linkedin || null,
+      website: website || null,
+      setor: setor || null,
+      tamanho_empresa: tamanhoEmpresa || null,
+      industria: industria || null,
+      tags: tags || null,
+      valor_estimado: value ? parseFloat(value) : null,
+      proximo_contato: nextContact || null
     };
 
     console.log('📊 Dados do lead a serem inseridos (empresa:', company, '):', leadData);

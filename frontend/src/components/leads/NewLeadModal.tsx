@@ -95,7 +95,16 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
       nextContact: formData.nextContact,
       status: 'prospecto',
       isOverdue: false,
-      source: formData.fonte // Adicionar fonte
+      source: formData.fonte,
+      // Adicionar todos os campos do modal
+      cargo: formData.cargo,
+      linkedin: formData.linkedin,
+      website: formData.website,
+      setor: formData.setor,
+      tamanhoEmpresa: formData.tamanhoEmpresa,
+      industria: formData.industria,
+      observacoes: formData.observacoes,
+      tags: formData.tags
     });
 
     // Mostrar toast de sucesso
@@ -234,7 +243,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Cargo/Função
+                    Profissão
                   </label>
                   <input
                     type="text"
@@ -280,7 +289,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  LinkedIn
+                  Rede Social
                 </label>
                 <input
                   type="url"

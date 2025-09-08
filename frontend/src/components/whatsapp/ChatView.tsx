@@ -8,6 +8,8 @@ import {
 import { MessageInput } from './MessageInput';
 import { MediaPreviewModal } from './MediaPreviewModal';
 import { EmojiPicker } from './EmojiPicker';
+import { MediaMessage } from './MediaMessage';
+import { SecureMediaDownload } from './SecureMediaDownload';
 
 interface WhatsAppContact {
   id: string;
@@ -26,6 +28,18 @@ interface WhatsAppContact {
   timestamp?: number;
 }
 
+interface MediaInfo {
+  type: string;
+  hasMedia: boolean;
+  filename?: string;
+  mimetype?: string;
+  size?: number;
+  duration?: number;
+  thumbnail?: string;
+  url?: string;
+  error?: string;
+}
+
 interface WhatsAppMessage {
   id: string;
   text: string;
@@ -35,6 +49,7 @@ interface WhatsAppMessage {
   mediaName?: string;
   mediaSize?: number;
   mediaDuration?: number;
+  mediaInfo?: MediaInfo;
   status: 'sent' | 'delivered' | 'read' | 'failed' | 'received';
   isFromMe: boolean;
 }
@@ -226,6 +241,94 @@ export const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
+  // Função para detectar se o texto é uma mídia base64
+  const isBase64Media = (text: string) => {
+    if (!text || typeof text !== 'string') return false;
+    
+    // Verificar se é uma string base64 longa (provavelmente mídia)
+    const base64Regex = /^[A-Za-z0-9+/]+=*$/;
+    const isLongBase64 = text.length > 100 && base64Regex.test(text);
+    
+    // Verificar assinaturas de mídia conhecidas
+    const isImage = text.startsWith('/9j/') || text.startsWith('iVBORw0KGgo') || text.startsWith('R0lGOD');
+    const isAudio = text.startsWith('UklGR') || text.startsWith('SUQz');
+    const isPdf = text.startsWith('JVBERi0');
+    
+    return isLongBase64 && (isImage || isAudio || isPdf);
+  };
+
+  // Detectar tipo MIME a partir de dados base64
+  const getMimeTypeFromBase64 = (base64String: string): string => {
+    if (!base64String || typeof base64String !== 'string') return 'application/octet-stream';
+    
+    // Verificar assinaturas de arquivos conhecidas
+    if (base64String.startsWith('/9j/')) {
+      return 'image/jpeg';
+    }
+    if (base64String.startsWith('iVBORw0KGgo')) {
+      return 'image/png';
+    }
+    if (base64String.startsWith('R0lGOD')) {
+      return 'image/gif';
+    }
+    if (base64String.startsWith('UklGR')) {
+      return 'audio/wav';
+    }
+    if (base64String.startsWith('SUQz')) {
+      return 'audio/mpeg';
+    }
+    if (base64String.startsWith('JVBERi0')) {
+      return 'application/pdf';
+    }
+    
+    return 'application/octet-stream';
+  };
+
+  // Detectar tipo de mídia baseado no conteúdo base64
+  const detectMediaTypeFromBase64 = (base64String: string): string => {
+    if (!base64String || typeof base64String !== 'string') return 'document';
+    
+    // Imagens
+    if (base64String.startsWith('/9j/') || base64String.startsWith('iVBORw0KGgo') || base64String.startsWith('R0lGOD')) {
+      return 'image';
+    }
+    
+    // Áudios
+    if (base64String.startsWith('UklGR') || base64String.startsWith('SUQz')) {
+      return 'audio';
+    }
+    
+    // PDFs
+    if (base64String.startsWith('JVBERi0')) {
+      return 'document';
+    }
+    
+    return 'document';
+  };
+
+  // Obter extensão de arquivo baseada no MIME type
+  const getFileExtensionFromBase64 = (base64String: string): string => {
+    const mimetype = getMimeTypeFromBase64(base64String);
+    const mimeMap: { [key: string]: string } = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'video/mp4': 'mp4',
+      'video/avi': 'avi',
+      'video/mov': 'mov',
+      'audio/mpeg': 'mp3',
+      'audio/wav': 'wav',
+      'audio/ogg': 'ogg',
+      'application/pdf': 'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'text/plain': 'txt'
+    };
+    
+    return mimeMap[mimetype] || 'bin';
+  };
+
   const getMessageStatusIcon = (status: string) => {
     switch (status) {
       case 'sent':
@@ -373,7 +476,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
               formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
 
             return (
-              <div key={message.id}>
+              <div key={`${message.id}_${index}`}>
                 {/* Separador de Data */}
                 {showDate && (
                   <div className="flex justify-center mb-2">
@@ -391,12 +494,41 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                   }`}>
                     {/* Conteúdo da Mensagem */}
-                    {message.type === 'text' && (
+                    {message.type === 'text' && !isBase64Media(message.text) && (
                       <p className="text-sm">{message.text}</p>
                     )}
                     
-                    {/* Mídia */}
-                    {message.type === 'image' && message.mediaUrl && (
+       {/* Detectar mídia base64 não processada */}
+       {message.type === 'text' && isBase64Media(message.text) && (
+         <div className="mb-2">
+           <SecureMediaDownload
+             mediaInfo={{
+               type: detectMediaTypeFromBase64(message.text),
+               hasMedia: true,
+               filename: `media_${message.id}.${getFileExtensionFromBase64(message.text)}`,
+               mimetype: getMimeTypeFromBase64(message.text),
+               url: message.text,
+               size: message.text.length
+             }}
+             isFromMe={message.isFromMe}
+             caption="Mídia não processada - clique em baixar para visualizar"
+           />
+         </div>
+       )}
+                    
+       {/* Mídia usando o componente seguro */}
+       {message.type !== 'text' && message.mediaInfo && (
+         <div className="mb-2">
+           <SecureMediaDownload
+             mediaInfo={message.mediaInfo}
+             isFromMe={message.isFromMe}
+             caption={message.text}
+           />
+         </div>
+       )}
+                    
+                    {/* Fallback para mídias antigas sem mediaInfo */}
+                    {message.type === 'image' && message.mediaUrl && !message.mediaInfo && (
                       <div className="mb-2">
                         <img 
                           src={message.mediaUrl} 
@@ -407,7 +539,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       </div>
                     )}
                     
-                    {message.type === 'video' && message.mediaUrl && (
+                    {message.type === 'video' && message.mediaUrl && !message.mediaInfo && (
                       <div className="mb-2 relative">
                         <video 
                           ref={videoRef}
@@ -424,7 +556,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       </div>
                     )}
                     
-                    {message.type === 'audio' && message.mediaUrl && (
+                    {message.type === 'audio' && message.mediaUrl && !message.mediaInfo && (
                       <div className="mb-2">
                         <audio 
                           ref={audioRef}
@@ -436,7 +568,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       </div>
                     )}
                     
-                    {message.type === 'document' && message.mediaUrl && (
+                    {message.type === 'document' && message.mediaUrl && !message.mediaInfo && (
                       <div className="mb-2 p-2 bg-gray-100 dark:bg-gray-600 rounded-lg">
                         <div className="flex items-center space-x-2">
                           <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center">
@@ -460,8 +592,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       </div>
                     )}
                     
-                    {/* Texto da mensagem (se houver) */}
-                    {message.text && message.type !== 'text' && (
+                    {/* Texto da mensagem (se houver e não for base64) */}
+                    {message.text && message.type !== 'text' && !isBase64Media(message.text) && (
                       <p className="text-sm mt-1">{message.text}</p>
                     )}
                     

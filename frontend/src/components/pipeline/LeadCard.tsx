@@ -23,6 +23,15 @@ export interface Lead {
   isOverdue: boolean;
   source?: string;
   tasks?: Task[];
+  // Novos campos do modal
+  cargo?: string;
+  linkedin?: string;
+  website?: string;
+  setor?: string;
+  tamanhoEmpresa?: string;
+  industria?: string;
+  observacoes?: string;
+  tags?: string[];
 }
 
 export interface Task {

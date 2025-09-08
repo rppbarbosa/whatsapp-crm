@@ -54,7 +54,16 @@ export default function Leads() {
         nextContact: newLead.nextContact || null,
         source: newLead.source || 'manual',
         status: 'lead-bruto',
-        notes: ''
+        notes: '',
+        // Adicionar todos os campos do modal
+        cargo: (newLead as any).cargo || null,
+        linkedin: (newLead as any).linkedin || null,
+        website: (newLead as any).website || null,
+        setor: (newLead as any).setor || null,
+        tamanhoEmpresa: (newLead as any).tamanhoEmpresa || null,
+        industria: (newLead as any).industria || null,
+        observacoes: (newLead as any).observacoes || null,
+        tags: (newLead as any).tags || null
       };
       
       const response = await whatsappApi.post('/api/leads', leadData);

@@ -93,8 +93,8 @@ const WhatsApp: React.FC = () => {
             name: chat.name || chat.id,
             phone: chat.phone || chat.id,
             isGroup: chat.isGroup || false,
-            lastMessage: chat.lastMessage?.body || '',
-            timestamp: chat.lastMessage?.timestamp ? chat.lastMessage.timestamp * 1000 : Date.now(),
+            lastMessage: chat.lastMessage?.body,
+            timestamp: chat.lastMessage?.timestamp * 1000,
             unreadCount: chat.unreadCount || 0,
             isOnline: false,
             isBusiness: false,
@@ -105,21 +105,7 @@ const WhatsApp: React.FC = () => {
             isFavorite: false
           }));
 
-          // Preservar última mensagem existente se não houver nova no backend
-          setContacts(prevContacts => {
-            return mappedContacts.map(newContact => {
-              const existingContact = prevContacts.find(c => c.id === newContact.id);
-              if (existingContact && !newContact.lastMessage && existingContact.lastMessage) {
-                // Se não há nova mensagem no backend, manter a existente
-                return {
-                  ...newContact,
-                  lastMessage: existingContact.lastMessage,
-                  timestamp: existingContact.timestamp
-                };
-              }
-              return newContact;
-            });
-          });
+          setContacts(mappedContacts);
         }
       }
     } catch (error) {
@@ -129,85 +115,51 @@ const WhatsApp: React.FC = () => {
     }
   }, [API_BASE_URL, API_KEY]);
 
-  // Carregar mensagens com loading state e retry
+  // Carregar mensagens
   const loadMessages = useCallback(async (contactId: string) => {
-    if (!contactId) return;
-    
-    setLoading(true);
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    const loadWithRetry = async (): Promise<WhatsAppMessage[]> => {
-      try {
-        console.log(`📱 Tentativa ${retryCount + 1} de carregar mensagens para: ${contactId}`);
-        
-        const response = await fetch(`${API_BASE_URL}/api/whatsapp/chats/${contactId}/messages?limit=50&loadHistory=true`, {
-          headers: { 'apikey': API_KEY }
-        });
-        
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        
-        if (!data.success) throw new Error(data.error || 'Erro ao carregar mensagens');
-        
-        return data.data.map((msg: any) => ({
-          id: msg.id,
-          text: msg.body || '',
-          timestamp: new Date(msg.timestamp * 1000),
-          type: msg.type || 'text',
-          mediaUrl: msg.mediaUrl,
-          mediaName: msg.mediaName,
-          mediaSize: msg.mediaSize,
-          mediaDuration: msg.mediaDuration,
-          status: msg.status || 'sent',
-          isFromMe: msg.isFromMe,
-          from: msg.from,
-          to: msg.to
-        }));
-      } catch (error) {
-        console.error(`❌ Erro na tentativa ${retryCount + 1}:`, error);
-        if (retryCount < maxRetries) {
-          retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-          return loadWithRetry();
-        }
-        throw error;
-      }
-    };
-
     try {
-      // ETAPA 1: Carregar mensagens iniciais rapidamente
-      const messages = await loadWithRetry();
-      console.log(`📨 Carregadas ${messages.length} mensagens`);
+      const response = await fetch(`${API_BASE_URL}/api/whatsapp/chats/${contactId}/messages?limit=50&loadHistory=true`, {
+        headers: {
+          'apikey': API_KEY
+        }
+      });
       
-      // ETAPA 2: Atualizar estado com loading
-      setMessages(messages);
-      if (isInitialLoad.current) {
-        setShouldAutoScroll(true);
-        isInitialLoad.current = false;
-      }
-      previousMessagesLength.current = messages.length;
-      
-      // ETAPA 3: Carregar mais mensagens em background se necessário
-      if (messages.length === 50) {
-        setTimeout(async () => {
-          try {
-            const moreMessages = await loadWithRetry();
-            if (moreMessages.length > messages.length) {
-              console.log(`📨 Carregadas mais ${moreMessages.length - messages.length} mensagens`);
-              setMessages(moreMessages);
-            }
-          } catch (error) {
-            console.error('❌ Erro ao carregar mais mensagens:', error);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const mappedMessages: WhatsAppMessage[] = data.data.map((msg: any) => ({
+            id: msg.id,
+            text: msg.body,
+            timestamp: new Date(msg.timestamp * 1000),
+            type: msg.type || 'text',
+            mediaUrl: msg.mediaUrl,
+            mediaName: msg.mediaName,
+            mediaSize: msg.mediaSize,
+            mediaDuration: msg.mediaDuration,
+            status: msg.status || 'sent',
+            isFromMe: msg.isFromMe,
+            from: msg.from,
+            to: msg.to
+          }));
+
+          setMessages(mappedMessages);
+          
+          // Se for carga inicial, força scroll
+          if (isInitialLoad.current) {
+            setShouldAutoScroll(true);
+            isInitialLoad.current = false;
+          } 
+          // Se recebemos novas mensagens e não estamos scrollando
+          else if (mappedMessages.length > previousMessagesLength.current && !isUserScrolling) {
+            setShouldAutoScroll(true);
           }
-        }, 1000);
+          previousMessagesLength.current = mappedMessages.length;
+        }
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar mensagens:', error);
-    } finally {
-      setLoading(false);
+      console.error('Erro ao carregar mensagens:', error);
     }
-  }, [API_BASE_URL, API_KEY]);
+  }, [API_BASE_URL, API_KEY, isUserScrolling]);
 
   // Enviar mensagem
   const sendMessage = useCallback(async (message: string) => {
@@ -300,62 +252,19 @@ const WhatsApp: React.FC = () => {
     isInitialLoad.current = true; // Reset para próxima conversa
   }, []);
 
-  // Marcar mensagens como lidas
-  const markAsRead = useCallback(async (chatId: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/whatsapp/chats/${chatId}/mark-read`, {
-        method: 'POST',
-        headers: {
-          'apikey': API_KEY
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          // Atualizar apenas o contador, preservando a última mensagem
-          setContacts(prevContacts => 
-            prevContacts.map(contact => 
-              contact.id === chatId 
-                ? { ...contact, unreadCount: 0 } // Apenas zera o contador, mantém lastMessage
-                : contact
-            )
-          );
-          console.log(`📖 Mensagens marcadas como lidas para ${chatId.substring(0, 20)}...`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Erro ao marcar como lida:', error);
-    }
-  }, [API_BASE_URL, API_KEY]);
-
   // Selecionar contato
   const handleContactSelect = useCallback((contact: WhatsAppContact) => {
-    console.log(`👤 Selecionando contato: ${contact.name} (${contact.id})`);
     setSelectedContact(contact);
-    setShouldAutoScroll(true); // Sempre ativa scroll ao abrir nova conversa
     isInitialLoad.current = true; // Força scroll na primeira carga
-    // Reset estado de scroll será gerenciado pelo ChatView
     previousMessagesLength.current = 0; // Reset contador
-    
-    // Marcar mensagens como lidas quando abrir o chat
-    if (contact.unreadCount && contact.unreadCount > 0) {
-      markAsRead(contact.id);
-    }
-    
-    // Carregar mensagens imediatamente
     loadMessages(contact.id);
-    
-    // Recarregar conversas para atualizar contadores
-    setTimeout(() => {
-      loadContacts();
-    }, 1000);
-  }, [loadMessages, markAsRead, loadContacts]);
+  }, [loadMessages]);
 
-  // Carregar dados iniciais e configurar polling de status/contatos
+  // Carregar dados iniciais e configurar polling
   useEffect(() => {
     let statusInterval: NodeJS.Timeout;
     let chatsInterval: NodeJS.Timeout;
+    let messagesInterval: NodeJS.Timeout;
 
     const loadInitialData = async () => {
       await loadStatus();
@@ -367,29 +276,30 @@ const WhatsApp: React.FC = () => {
     loadInitialData();
 
     if (status.isReady) {
-      // Status: a cada 5 minutos (WPPConnect gerencia internamente)
+      // Status: a cada 2 minutos
       statusInterval = setInterval(() => {
         loadStatus();
-      }, 300000);
+      }, 120000);
 
-      // Conversas: a cada 30 segundos para detectar mensagens não lidas
+      // Conversas: a cada 1 minuto
       chatsInterval = setInterval(() => {
         loadContacts();
-      }, 30000);
+      }, 60000);
+
+      // Mensagens: a cada 10 segundos (apenas se tiver chat selecionado)
+      if (selectedContact) {
+        messagesInterval = setInterval(() => {
+          loadMessages(selectedContact.id);
+        }, 10000);
+      }
     }
 
     return () => {
       clearInterval(statusInterval);
       clearInterval(chatsInterval);
+      clearInterval(messagesInterval);
     };
-  }, [status.isReady, loadStatus, loadContacts]);
-
-  // Carregar mensagens iniciais ao selecionar contato
-  useEffect(() => {
-    if (selectedContact) {
-      loadMessages(selectedContact.id);
-    }
-  }, [selectedContact, loadMessages]);
+  }, [status.isReady, loadStatus, loadContacts, loadMessages, selectedContact]);
 
   // Renderizar estado de não conectado
   if (!status.isReady) {

@@ -224,6 +224,58 @@ router.post('/send', async (req, res) => {
   }
 });
 
+// POST /api/whatsapp/send-media - Enviar mídia
+router.post('/send-media', async (req, res) => {
+  try {
+    const { to, media, filename, mimetype, caption } = req.body;
+    
+    console.log('📤 Dados recebidos:', { 
+      to, 
+      filename, 
+      mimetype, 
+      mediaLength: media ? media.length : 0,
+      hasCaption: !!caption 
+    });
+    
+    if (!to || !media || !filename || !mimetype) {
+      console.log('❌ Parâmetros obrigatórios ausentes:', { to: !!to, media: !!media, filename: !!filename, mimetype: !!mimetype });
+      return res.status(400).json({
+        success: false,
+        error: 'Parâmetros "to", "media", "filename" e "mimetype" são obrigatórios'
+      });
+    }
+    
+    console.log(`📤 Enviando mídia via WPPConnect para: ${to} (${filename})`);
+    
+    // Converter base64 para buffer
+    const mediaBuffer = Buffer.from(media, 'base64');
+    console.log(`📊 Tamanho do buffer: ${mediaBuffer.length} bytes`);
+    
+    const result = await wppconnectService.sendMedia(to, mediaBuffer, filename, mimetype, caption || '');
+    
+    console.log('📤 Resultado do envio:', result);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      console.log('❌ Erro no envio:', result.error);
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erro ao enviar mídia:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // POST /api/whatsapp/destroy - Destruir instância
 router.post('/destroy', async (req, res) => {
   try {

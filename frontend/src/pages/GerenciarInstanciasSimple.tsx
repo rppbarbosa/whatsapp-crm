@@ -161,20 +161,20 @@ const GerenciarInstanciasSimple: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Gerenciar Instâncias WhatsApp</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gerenciar Instâncias WhatsApp</h1>
               <div className="flex items-center space-x-2 mt-2">
                 {getStatusIcon()}
                 <span className={`text-sm font-medium ${getStatusColor()}`}>
                   {getStatusText()}
                 </span>
                 {status.phone && (
-                  <span className="text-sm text-gray-500">({status.phone})</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">({status.phone})</span>
                 )}
               </div>
             </div>
@@ -221,21 +221,21 @@ const GerenciarInstanciasSimple: React.FC = () => {
         </div>
 
         {/* Status Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           {status.status === 'qr_ready' && status.qrCode ? (
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Escaneie o QR Code
               </h3>
               <QRCodeDisplay qrCode={status.qrCode} size={256} />
-              <p className="text-sm text-gray-600 mt-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
                 Abra o WhatsApp no seu celular e escaneie este QR Code
               </p>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>Instruções:</strong>
                 </p>
-                <ol className="text-sm text-blue-700 mt-2 text-left max-w-md mx-auto">
+                <ol className="text-sm text-blue-700 dark:text-blue-300 mt-2 text-left max-w-md mx-auto">
                   <li>1. Abra o WhatsApp no seu celular</li>
                   <li>2. Toque em "Menu" ou "Configurações"</li>
                   <li>3. Toque em "Dispositivos conectados"</li>
@@ -246,18 +246,18 @@ const GerenciarInstanciasSimple: React.FC = () => {
             </div>
           ) : status.isReady ? (
             <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Wifi className="w-8 h-8 text-green-600" />
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wifi className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 WhatsApp Conectado
               </h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Pronto para enviar e receber mensagens
               </p>
               {status.phone && (
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <p className="text-sm text-green-800">
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <p className="text-sm text-green-800 dark:text-green-200">
                     <strong>Número conectado:</strong> {status.phone}
                   </p>
                 </div>
@@ -265,20 +265,20 @@ const GerenciarInstanciasSimple: React.FC = () => {
             </div>
           ) : (
             <div className="text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <WifiOff className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <WifiOff className="w-8 h-8 text-gray-400 dark:text-gray-500" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 WhatsApp Desconectado
               </h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Clique em "Conectar" para iniciar uma nova instância
               </p>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-700">
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
                   <strong>Funcionalidades disponíveis após conectar:</strong>
                 </p>
-                <ul className="text-sm text-gray-600 mt-2 text-left max-w-md mx-auto">
+                <ul className="text-sm text-gray-600 dark:text-gray-400 mt-2 text-left max-w-md mx-auto">
                   <li>• Enviar e receber mensagens</li>
                   <li>• Gerenciar conversas</li>
                   <li>• Sincronizar contatos</li>
@@ -290,30 +290,30 @@ const GerenciarInstanciasSimple: React.FC = () => {
         </div>
 
         {/* Informações adicionais */}
-        <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Informações da Instância
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-gray-600">Status:</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Status:</p>
               <p className={`font-medium ${getStatusColor()}`}>{getStatusText()}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Número:</p>
-              <p className="font-medium text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Número:</p>
+              <p className="font-medium text-gray-900 dark:text-white">
                 {status.phone || 'Não conectado'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Última atualização:</p>
-              <p className="font-medium text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Última atualização:</p>
+              <p className="font-medium text-gray-900 dark:text-white">
                 {new Date().toLocaleTimeString()}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">API Status:</p>
-              <p className="font-medium text-green-600">Online</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">API Status:</p>
+              <p className="font-medium text-green-600 dark:text-green-400">Online</p>
             </div>
           </div>
         </div>

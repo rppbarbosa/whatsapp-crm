@@ -23,6 +23,7 @@ const WhatsAppBusinessSimple: React.FC = () => {
     shouldAutoScroll,
     initializeWhatsApp,
     sendMessage,
+    sendMedia,
     selectChat,
     loadChats,
     loadEarlierMessages,
@@ -53,19 +54,23 @@ const WhatsAppBusinessSimple: React.FC = () => {
   const convertedMessages = messages.map(msg => ({
     id: msg.id,
     text: msg.body || '',
-    timestamp: new Date(msg.timestamp * 1000),
-    type: 'text' as const,
+    timestamp: new Date(msg.timestamp),
+    type: (msg.type || 'text') as 'text' | 'image' | 'video' | 'audio' | 'document',
     status: 'delivered' as const,
-    isFromMe: msg.isFromMe
+    isFromMe: msg.isFromMe,
+    mediaInfo: msg.mediaInfo, // Preservar informações de mídia
+    mediaUrl: msg.mediaUrl,
+    mediaName: msg.mediaName,
+    mediaSize: msg.mediaSize
   }));
 
-  const handleContactSelect = (contact: any) => {
+  const handleContactSelect = async (contact: any) => {
     setSelectedContact(contact);
     setShowChat(true);
     // Buscar conversa correspondente
     const chat = chats.find(c => c.id === contact.id);
     if (chat) {
-      selectChat(chat);
+      await selectChat(chat);
       
       // Marcar como lida se tinha mensagens não lidas
       if (contact.unreadCount > 0) {
@@ -93,8 +98,10 @@ const WhatsAppBusinessSimple: React.FC = () => {
     }
   };
 
-  const handleSendMedia = (file: File, type: 'image' | 'video' | 'audio' | 'document', message?: string) => {
-    console.log('Enviar mídia:', file, type, message);
+  const handleSendMedia = async (file: File, type: 'image' | 'video' | 'audio' | 'document', message?: string) => {
+    if (selectedContact && selectedChat) {
+      await sendMedia(file, type, message);
+    }
   };
 
   const handleSync = () => {

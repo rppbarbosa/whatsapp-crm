@@ -12,6 +12,13 @@ class WPPConnectService {
     // Sistema de rastreamento de mensagens não lidas
     this.unreadMessages = new Map(); // chatId -> count
     this.lastReadMessages = new Map(); // chatId -> lastReadMessageId
+    this.mediaCache = new Map(); // messageId -> mediaInfo (cache para evitar reprocessar)
+    
+    // Limpar cache de mídias a cada 5 minutos para evitar thumbnails
+    setInterval(() => {
+      console.log('🧹 Limpando cache de mídias...');
+      this.mediaCache.clear();
+    }, 5 * 60 * 1000);
     
     console.log('🚀 WPPConnect Service inicializado');
     
@@ -220,7 +227,10 @@ class WPPConnectService {
           id: chat.id._serialized,
           name: chat.name || chat.contact?.pushname || chat.contact?.name || 'Sem nome',
           isGroup: chat.isGroup,
-          lastMessage: lastMessage,
+          lastMessage: lastMessage ? {
+            ...lastMessage,
+            timestamp: lastMessage.timestamp ? lastMessage.timestamp : Date.now()
+          } : null,
           unreadCount: this.unreadMessages.get(chat.id._serialized) || 0
         };
       }));
@@ -292,19 +302,45 @@ class WPPConnectService {
       }
 
       // Formatar mensagens
-      const formattedMessages = messages.map(msg => ({
-        id: msg.id,
-        body: msg.body || msg.caption || '',
-        timestamp: msg.timestamp,
-        from: msg.from,
-        to: msg.to,
-        isFromMe: msg.fromMe,
-        type: msg.type || 'text',
-        author: msg.author || null,
-        quotedMsg: msg.quotedMsg ? {
-          body: msg.quotedMsg.body || '',
-          author: msg.quotedMsg.author
-        } : null
+      const formattedMessages = await Promise.all(messages.map(async (msg) => {
+        const formattedMsg = {
+          id: msg.id,
+          body: msg.body || msg.caption || '',
+          timestamp: msg.timestamp ? msg.timestamp : Date.now(),
+          from: msg.from,
+          to: msg.to,
+          isFromMe: msg.fromMe,
+          type: msg.type || 'text',
+          author: msg.author || null,
+          quotedMsg: msg.quotedMsg ? {
+            body: msg.quotedMsg.body || '',
+            author: msg.quotedMsg.author
+          } : null
+        };
+
+        // Processar informações de mídia se for uma mensagem de mídia
+        if (msg.type && ['image', 'video', 'audio', 'document', 'ptt', 'sticker'].includes(msg.type)) {
+          try {
+            // Log do filename original da mensagem
+            console.log(`📁 Filename original da mensagem ${msg.id}:`, msg.filename);
+            
+            // Obter informações da mídia
+            const mediaInfo = await this.getMediaInfo(msg);
+            formattedMsg.mediaInfo = mediaInfo;
+            
+            // Log do filename final
+            console.log(`📁 Filename final da mídia:`, mediaInfo.filename);
+          } catch (error) {
+            console.log(`⚠️ Erro ao obter informações de mídia para mensagem ${msg.id}:`, error.message);
+            formattedMsg.mediaInfo = {
+              type: msg.type,
+              hasMedia: true,
+              error: 'Erro ao carregar mídia'
+            };
+          }
+        }
+
+        return formattedMsg;
       }));
 
       console.log(`✅ ${formattedMessages.length} mensagens formatadas`);
@@ -583,6 +619,377 @@ class WPPConnectService {
     });
 
     console.log('✅ Listeners de mensagens configurados');
+  }
+
+  // Detectar tipo MIME a partir de dados base64
+  getMimeTypeFromBase64(base64String) {
+    if (!base64String || typeof base64String !== 'string') return 'application/octet-stream';
+    
+    // Verificar assinaturas de arquivos conhecidas
+    if (base64String.startsWith('/9j/') || base64String.startsWith('iVBORw0KGgo')) {
+      return 'image/jpeg';
+    }
+    if (base64String.startsWith('iVBORw0KGgo')) {
+      return 'image/png';
+    }
+    if (base64String.startsWith('UklGR')) {
+      return 'audio/wav';
+    }
+    if (base64String.startsWith('SUQz')) {
+      return 'audio/mpeg';
+    }
+    if (base64String.startsWith('R0lGOD')) {
+      return 'image/gif';
+    }
+    if (base64String.startsWith('UklGR')) {
+      return 'audio/wav';
+    }
+    if (base64String.startsWith('JVBERi0')) {
+      return 'application/pdf';
+    }
+    
+    return 'application/octet-stream';
+  }
+
+  // Detectar tipo de mídia baseado no conteúdo base64
+  detectMediaTypeFromBase64(base64String) {
+    if (!base64String || typeof base64String !== 'string') return 'document';
+    
+    // Imagens
+    if (base64String.startsWith('/9j/') || base64String.startsWith('iVBORw0KGgo') || base64String.startsWith('R0lGOD')) {
+      return 'image';
+    }
+    
+    // Áudios
+    if (base64String.startsWith('UklGR') || base64String.startsWith('SUQz')) {
+      return 'audio';
+    }
+    
+    // Vídeos (mais difícil de detectar, mas podemos tentar)
+    if (base64String.startsWith('AAAAIGZ0eXBpc29t')) {
+      return 'video';
+    }
+    
+    return 'document';
+  }
+
+  // Obter extensão de arquivo baseada no MIME type
+  getFileExtension(mimetype) {
+    const mimeMap = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'video/mp4': 'mp4',
+      'video/avi': 'avi',
+      'video/mov': 'mov',
+      'audio/mpeg': 'mp3',
+      'audio/wav': 'wav',
+      'audio/ogg': 'ogg',
+      'application/pdf': 'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'text/plain': 'txt'
+    };
+    
+    return mimeMap[mimetype] || 'bin';
+  }
+
+  // Obter informações de mídia de uma mensagem usando API REST oficial
+  async getMediaInfo(message) {
+    try {
+      // Verificar cache primeiro
+      if (this.mediaCache.has(message.id)) {
+        console.log(`📋 Mídia ${message.id} encontrada no cache`);
+        return this.mediaCache.get(message.id);
+      }
+
+      const mediaInfo = {
+        type: message.type,
+        hasMedia: true,
+        filename: null,
+        mimetype: null,
+        size: null,
+        duration: null,
+        thumbnail: null,
+        url: null
+      };
+
+      // Obter informações básicas da mídia
+      if (message.mediaData) {
+        mediaInfo.filename = message.mediaData.filename || null;
+        mediaInfo.mimetype = message.mediaData.mimetype || null;
+        mediaInfo.size = message.mediaData.size || null;
+      }
+      
+      // Preservar filename original da mensagem se disponível
+      if (message.filename && !mediaInfo.filename) {
+        mediaInfo.filename = message.filename;
+        console.log(`📁 Preservando filename original: ${message.filename}`);
+      }
+      
+      // Log detalhado do filename
+      console.log(`📁 Filename da mensagem: ${message.filename || 'N/A'}`);
+      console.log(`📁 Filename do mediaData: ${message.mediaData?.filename || 'N/A'}`);
+      console.log(`📁 Filename final: ${mediaInfo.filename || 'N/A'}`);
+
+      // Para áudios e vídeos, obter duração
+      if (message.type === 'audio' || message.type === 'ptt' || message.type === 'video') {
+        mediaInfo.duration = message.duration || null;
+      }
+
+      // Tentar obter mídia usando métodos do cliente WPPConnect
+      if (message.id && ['image', 'video', 'audio', 'document', 'ptt', 'sticker'].includes(message.type)) {
+        try {
+          if (this.client && this.isConnected) {
+            try {
+              console.log(`📥 Tentando baixar mídia para mensagem ${message.id}...`);
+              
+              // MÉTODO PRINCIPAL: downloadMedia com força para qualidade original
+              let mediaData = null;
+              try {
+                console.log(`🔄 Tentando downloadMedia para obter qualidade original...`);
+                mediaData = await this.client.downloadMedia(message, true);
+                console.log(`📥 downloadMedia resultado:`, { 
+                  hasData: !!mediaData?.data, 
+                  size: mediaData?.data?.length || 0,
+                  mimetype: mediaData?.mimetype 
+                });
+              } catch (error) {
+                console.log(`⚠️ downloadMedia falhou: ${error.message}`);
+              }
+
+              // MÉTODO FALLBACK: decryptFile (se downloadMedia falhar ou retornar thumbnail)
+              if (!mediaData || !mediaData.data || (mediaData.data.length < 10000 && mediaData.data.length > 0)) {
+                try {
+                  console.log(`🔄 Fallback: tentando decryptFile...`);
+                  const decryptedMedia = await this.client.decryptFile(message);
+                  if (decryptedMedia && decryptedMedia.length > (mediaData?.data?.length || 0)) {
+                    console.log(`✅ decryptFile retornou arquivo maior: ${decryptedMedia.length} bytes`);
+                    mediaData = {
+                      data: decryptedMedia.toString('base64'),
+                      mimetype: message.mimetype || this.getMimeTypeFromBase64(decryptedMedia.toString('base64')),
+                      filename: message.filename || `media_${message.id}.${this.getFileExtension(message.mimetype)}`,
+                      size: decryptedMedia.length
+                    };
+                  }
+                } catch (decryptError) {
+                  console.log(`⚠️ decryptFile falhou: ${decryptError.message}`);
+                }
+              }
+
+              // MÉTODO 3: Se ainda não temos dados, tentar getFileFromMessage (se existir)
+              if (!mediaData || !mediaData.data) {
+                try {
+                  if (typeof this.client.getFileFromMessage === 'function') {
+                    console.log(`🔄 Tentando getFileFromMessage...`);
+                    const fileData = await this.client.getFileFromMessage(message);
+                    if (fileData && fileData.data) {
+                      mediaData = fileData;
+                      console.log(`✅ getFileFromMessage sucesso: ${fileData.data.length} caracteres`);
+                    }
+                  }
+                } catch (fileError) {
+                  console.log(`⚠️ getFileFromMessage falhou: ${fileError.message}`);
+                }
+              }
+
+              // Aplicar dados se obtidos
+              if (mediaData && mediaData.data) {
+                // Verificar se o arquivo é muito pequeno (provavelmente thumbnail)
+                const estimatedSize = Math.round(mediaData.data.length * 0.75);
+                if (estimatedSize < 5000 && message.type === 'image') {
+                  console.log(`⚠️ Arquivo muito pequeno (${estimatedSize} bytes), pode ser thumbnail`);
+                  console.log(`🔄 Tentando métodos alternativos para obter qualidade original...`);
+                  
+                  // Tentar downloadMedia sem cache
+                  try {
+                    const freshMedia = await this.client.downloadMedia(message, false);
+                    if (freshMedia && freshMedia.data && freshMedia.data.length > mediaData.data.length) {
+                      console.log(`✅ Método alternativo retornou arquivo maior: ${freshMedia.data.length} caracteres`);
+                      mediaData = freshMedia;
+                    }
+                  } catch (altError) {
+                    console.log(`⚠️ Método alternativo falhou: ${altError.message}`);
+                  }
+                }
+                
+                mediaInfo.url = mediaData.data;
+                mediaInfo.mimetype = mediaData.mimetype;
+                mediaInfo.filename = mediaData.filename;
+                mediaInfo.size = mediaData.size;
+                console.log(`✅ Mídia obtida com sucesso: ${mediaData.data.length} caracteres base64 (${Math.round(mediaData.data.length * 0.75)} bytes estimados)`);
+              } else {
+                console.log(`❌ Nenhum método conseguiu obter a mídia`);
+              }
+            } catch (downloadError) {
+              console.log(`⚠️ Erro geral ao baixar mídia: ${downloadError.message}`);
+            }
+          }
+          
+          // Fallback: verificar se a mensagem tem dados de mídia
+          if (!mediaInfo.url && message.mediaData && message.mediaData.data) {
+            mediaInfo.url = message.mediaData.data;
+            mediaInfo.mimetype = message.mediaData.mimetype;
+            mediaInfo.filename = message.mediaData.filename;
+            mediaInfo.size = message.mediaData.size;
+          }
+          
+          // Fallback: se o body contém dados base64 (mídia não processada)
+          if (!mediaInfo.url && message.body && message.body.length > 100) {
+            mediaInfo.url = message.body;
+            mediaInfo.mimetype = this.getMimeTypeFromBase64(message.body);
+            mediaInfo.type = this.detectMediaTypeFromBase64(message.body);
+            mediaInfo.filename = `media_${message.id}.${this.getFileExtension(mediaInfo.mimetype)}`;
+            mediaInfo.size = message.body.length;
+          }
+        } catch (error) {
+          console.log(`⚠️ Erro ao obter mídia: ${error.message}`);
+          // Se falhar, tentar usar dados do body como fallback
+          if (message.body && message.body.length > 100) {
+            mediaInfo.url = message.body;
+            mediaInfo.mimetype = this.getMimeTypeFromBase64(message.body);
+            mediaInfo.type = this.detectMediaTypeFromBase64(message.body);
+            mediaInfo.filename = `media_${message.id}.${this.getFileExtension(mediaInfo.mimetype)}`;
+            mediaInfo.size = message.body.length;
+          }
+        }
+      }
+
+      // Salvar no cache
+      this.mediaCache.set(message.id, mediaInfo);
+      
+      return mediaInfo;
+    } catch (error) {
+      console.error('❌ Erro ao obter informações de mídia:', error);
+      const errorInfo = {
+        type: message.type,
+        hasMedia: true,
+        error: error.message
+      };
+      
+      // Salvar erro no cache também para evitar reprocessar
+      this.mediaCache.set(message.id, errorInfo);
+      
+      return errorInfo;
+    }
+  }
+
+  // Enviar mídia usando cliente WPPConnect diretamente
+  async sendMedia(to, mediaBuffer, filename, mimetype, caption = '') {
+    try {
+      console.log(`📤 Iniciando envio de mídia para ${to}: ${filename} (${mimetype})`);
+      
+      if (!this.client) {
+        console.log('❌ Cliente WPPConnect não está inicializado');
+        return {
+          success: false,
+          error: 'Cliente WPPConnect não está inicializado'
+        };
+      }
+      
+      if (!this.isConnected) {
+        console.log('❌ WhatsApp não está conectado');
+        return {
+          success: false,
+          error: 'WhatsApp não está conectado'
+        };
+      }
+
+      // Converter buffer para base64
+      const base64Media = mediaBuffer.toString('base64');
+      console.log(`📊 Buffer original: ${mediaBuffer.length} bytes`);
+      console.log(`📊 Base64 gerado: ${base64Media.length} caracteres`);
+      console.log(`📊 Tamanho estimado do arquivo: ${Math.round(base64Media.length * 0.75)} bytes`);
+      
+      let result;
+
+      // Usar métodos do cliente WPPConnect baseado no tipo de mídia
+      if (mimetype.startsWith('image/')) {
+        console.log('🖼️ Enviando imagem...');
+        try {
+          // Método 1: sendImage com data URL
+          result = await this.client.sendImage(
+            to, 
+            `data:${mimetype};base64,${base64Media}`, 
+            filename, 
+            caption
+          );
+        } catch (imageError) {
+          console.log(`⚠️ sendImage falhou: ${imageError.message}`);
+          // Método 2: sendFile como fallback
+          try {
+            result = await this.client.sendFile(
+              to,
+              `data:${mimetype};base64,${base64Media}`,
+              filename,
+              caption
+            );
+          } catch (fileError) {
+            console.log(`⚠️ sendFile também falhou: ${fileError.message}`);
+            // Método 3: sendMessage com mídia
+            try {
+              result = await this.client.sendMessage(
+                to,
+                {
+                  media: `data:${mimetype};base64,${base64Media}`,
+                  caption: caption,
+                  filename: filename
+                }
+              );
+            } catch (messageError) {
+              console.log(`⚠️ sendMessage também falhou: ${messageError.message}`);
+              throw imageError; // Relançar o erro original
+            }
+          }
+        }
+      } else if (mimetype.startsWith('video/')) {
+        console.log('🎥 Enviando vídeo...');
+        result = await this.client.sendFile(
+          to, 
+          `data:${mimetype};base64,${base64Media}`, 
+          filename, 
+          caption
+        );
+      } else if (mimetype.startsWith('audio/')) {
+        console.log('🎵 Enviando áudio...');
+        result = await this.client.sendVoice(
+          to, 
+          `data:${mimetype};base64,${base64Media}`
+        );
+      } else {
+        console.log('📄 Enviando documento...');
+        result = await this.client.sendFile(
+          to, 
+          `data:${mimetype};base64,${base64Media}`, 
+          filename, 
+          caption
+        );
+      }
+
+      console.log('📤 Resultado do WPPConnect:', result);
+
+      if (result && result.id) {
+        console.log(`✅ Mídia enviada com sucesso: ${result.id}`);
+        return {
+          success: true,
+          data: {
+            messageId: result.id,
+            timestamp: result.timestamp || Date.now()
+          }
+        };
+      } else {
+        console.log('❌ Resposta inválida do WhatsApp:', result);
+        throw new Error('Resposta inválida do WhatsApp');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao enviar mídia:', error);
+      console.error('❌ Stack trace:', error.stack);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
   // Marcar conversa como lida
