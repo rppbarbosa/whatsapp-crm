@@ -153,15 +153,6 @@ const PipelineVendas: React.FC = () => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [scheduledContacts, setScheduledContacts] = useState<any[]>([]);
 
-  // Organizar leads nas colunas baseado no status
-  React.useEffect(() => {
-    const updatedColumns = columns.map(column => ({
-      ...column,
-      leads: leads.filter(lead => lead.status === column.id)
-    }));
-    setColumns(updatedColumns);
-  }, [leads]); // CORREÇÃO: Remover 'columns' das dependências para evitar loop infinito
-
   // Filtrar leads baseado na busca e prioridade
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
@@ -175,14 +166,13 @@ const PipelineVendas: React.FC = () => {
     return matchesSearch && matchesPriority;
   });
 
-  // Organizar leads filtrados nas colunas
-  React.useEffect(() => {
-    const updatedColumns = columns.map(column => ({
+  // Calcular colunas com leads filtrados usando useMemo para evitar loops
+  const columnsWithLeads = React.useMemo(() => {
+    return columns.map(column => ({
       ...column,
       leads: filteredLeads.filter(lead => lead.status === column.id)
     }));
-    setColumns(updatedColumns);
-  }, [filteredLeads]); // CORREÇÃO: Remover 'columns' das dependências para evitar loop infinito
+  }, [filteredLeads, columns]);
 
   // Função para abrir modal de movimentação
   const handleMoveLead = (lead: Lead) => {
@@ -491,7 +481,7 @@ const PipelineVendas: React.FC = () => {
       {/* Pipeline Kanban */}
       <div className="px-6 py-4 pb-8">
         <PipelineContainer
-          columns={columns}
+          columns={columnsWithLeads}
           leads={leads}
           filteredLeads={filteredLeads}
           onMoveLead={handleMoveLead}
@@ -513,7 +503,7 @@ const PipelineVendas: React.FC = () => {
       {showMoveModal && selectedLead && (
         <MoveLeadModal
           lead={selectedLead}
-          columns={columns}
+          columns={columnsWithLeads}
           onConfirm={handleConfirmMove}
           onClose={() => setShowMoveModal(false)}
         />
