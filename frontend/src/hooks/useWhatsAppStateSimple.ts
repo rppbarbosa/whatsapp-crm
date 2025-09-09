@@ -28,6 +28,29 @@ export const useWhatsAppStateSimple = () => {
     saveMessages
   } = useMessageCache();
 
+  // Função para converter Message para CachedMessage
+  const convertMessageToCached = useCallback((message: Message) => {
+    return {
+      id: message.id,
+      body: message.body,
+      timestamp: message.timestamp,
+      from: message.from,
+      to: message.to,
+      isFromMe: message.isFromMe,
+      type: message.type,
+      author: message.author,
+      quotedMsg: message.quotedMsg,
+      mediaInfo: message.mediaInfo ? {
+        type: message.mediaInfo.type,
+        url: message.mediaInfo.url || '',
+        filename: message.mediaInfo.filename || '',
+        hasMedia: message.mediaInfo.hasMedia,
+        mimetype: message.mediaInfo.mimetype,
+        size: message.mediaInfo.size
+      } : undefined
+    };
+  }, []);
+
   // Carregar status do WhatsApp
   const loadStatus = useCallback(async () => {
     try {
@@ -104,6 +127,9 @@ export const useWhatsAppStateSimple = () => {
         console.log('✅ Mensagens carregadas do backend:', response.data.data.length);
         console.log('📚 Total de mensagens no histórico:', response.data.totalMessages);
         
+        // Obter mensagens do cache
+        const cachedMessages = getCachedMessages(chatId);
+        
         // Mesclar com cache se existir
         let finalMessages = response.data.data;
         if (cachedMessages.length > 0) {
@@ -114,7 +140,8 @@ export const useWhatsAppStateSimple = () => {
         }
         
         // Salvar no cache
-        saveMessages(chatId, finalMessages, response.data.totalMessages || 0);
+        const cachedFinalMessages = finalMessages.map(convertMessageToCached);
+        saveMessages(chatId, cachedFinalMessages, response.data.totalMessages || 0);
         
         setMessages(finalMessages);
         setHasMoreHistory(response.data.hasMoreHistory || false);
@@ -155,7 +182,7 @@ export const useWhatsAppStateSimple = () => {
     } finally {
       setLoadingHistory(false);
     }
-  }, [getCachedMessages, saveMessages]);
+  }, [getCachedMessages, saveMessages, convertMessageToCached]);
 
   // Carregar mensagens anteriores (scroll infinito)
   const loadEarlierMessages = useCallback(async () => {
@@ -214,6 +241,34 @@ export const useWhatsAppStateSimple = () => {
       toast.error('Erro ao enviar mensagem');
     }
   }, [selectedChat, status.isReady, loadMessages]);
+
+  // Marcar conversa como lida
+  const markChatAsRead = useCallback(async (chatId: string) => {
+    try {
+      console.log(`📖 Marcando conversa como lida: ${chatId}`);
+      const response = await whatsappApi.markChatAsRead(chatId);
+      
+      if (response.data.success) {
+        // Atualizar o estado local dos chats
+        setChats(prevChats => 
+          prevChats.map(chat => 
+            chat.id === chatId 
+              ? { ...chat, unreadCount: 0 }
+              : chat
+          )
+        );
+        
+        console.log('✅ Conversa marcada como lida com sucesso');
+        return true;
+      } else {
+        console.error('❌ Erro ao marcar como lida:', response.data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao marcar como lida:', error);
+      return false;
+    }
+  }, []);
 
   // Enviar mídia
   const sendMedia = useCallback(async (file: File, type: 'image' | 'video' | 'audio' | 'document', caption?: string) => {
@@ -295,7 +350,8 @@ export const useWhatsAppStateSimple = () => {
           const allMessages = [...cachedMessages, ...newMessages]
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
           
-          saveMessages(chat.id, allMessages, response.data.totalMessages || 0);
+          const cachedAllMessages = allMessages.map(convertMessageToCached);
+          saveMessages(chat.id, cachedAllMessages, response.data.totalMessages || 0);
           
           // Atualizar estado imediatamente para mostrar as mensagens novas
           setMessages(allMessages);
@@ -318,7 +374,7 @@ export const useWhatsAppStateSimple = () => {
     } catch (error) {
       console.error('❌ Erro na sincronização imediata:', error);
     }
-  }, [loadMessages, getCachedMessages, saveMessages]);
+  }, [loadMessages, getCachedMessages, saveMessages, convertMessageToCached]);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -383,7 +439,8 @@ export const useWhatsAppStateSimple = () => {
               .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                 
                 // Salvar no cache
-                saveMessages(selectedChat.id, allMessages, response.data.totalMessages || 0);
+                const cachedAllMessages = allMessages.map(convertMessageToCached);
+                saveMessages(selectedChat.id, cachedAllMessages, response.data.totalMessages || 0);
                 
                 // Atualizar estado
                 setMessages(allMessages);
@@ -397,8 +454,35 @@ export const useWhatsAppStateSimple = () => {
                   });
                 }
               } else {
-                // Mesmo sem mensagens novas, atualizar estado com cache
-                setMessages(cachedMessages);
+                // CORREÇÃO: Mesclar mensagens do backend com cache para preservar mediaInfo
+                const mergedMessages = backendMessages.map(backendMsg => {
+                  // Procurar mensagem correspondente no cache
+                  const cachedMsg = cachedMessages.find(cached => 
+                    cached.id === backendMsg.id || 
+                    (cached.timestamp === backendMsg.timestamp && cached.body === backendMsg.body)
+                  );
+                  
+                  // Se encontrou no cache e tem mediaInfo, preservar
+                  if (cachedMsg && cachedMsg.mediaInfo) {
+                    return {
+                      ...backendMsg,
+                      mediaInfo: cachedMsg.mediaInfo
+                    };
+                  }
+                  
+                  // Caso contrário, usar mensagem do backend
+                  return backendMsg;
+                });
+                
+                // Atualizar cache com mensagens mescladas
+                const cachedMergedMessages = mergedMessages.map(convertMessageToCached);
+                saveMessages(selectedChat.id, cachedMergedMessages, response.data.totalMessages || 0);
+                
+                // Atualizar estado com mensagens mescladas
+                setMessages(mergedMessages);
+                setTotalMessages(response.data.totalMessages || 0);
+                
+                console.log(`🔄 Mensagens mescladas preservando mediaInfo: ${mergedMessages.filter(m => m.mediaInfo).length} com mídia`);
               }
             }
           } catch (error) {
@@ -412,7 +496,7 @@ export const useWhatsAppStateSimple = () => {
         clearInterval(interval);
       };
     }
-  }, [selectedChat, status.status, isUserScrolling, getCachedMessages, saveMessages]);
+  }, [selectedChat, status.status, isUserScrolling, getCachedMessages, saveMessages, convertMessageToCached]);
 
   // Polling para atualizar lista de conversas (para contador não lidas)
   useEffect(() => {
@@ -432,7 +516,8 @@ export const useWhatsAppStateSimple = () => {
               const response = await whatsappApi.getMessages(chat.id, 50, false);
               if (response.data.success) {
                 // Atualizar cache com mensagens mais recentes
-                saveMessages(chat.id, response.data.data, response.data.totalMessages || 0);
+                const cachedMessages = response.data.data.map(convertMessageToCached);
+                saveMessages(chat.id, cachedMessages, response.data.totalMessages || 0);
                 console.log(`📦 Cache atualizado para ${chat.name} (${chat.unreadCount} não lidas)`);
               }
             } catch (error) {
@@ -449,7 +534,7 @@ export const useWhatsAppStateSimple = () => {
         clearInterval(interval);
       };
     }
-  }, [status.status, loadChats, chats, saveMessages]);
+  }, [status.status, loadChats, chats, saveMessages, convertMessageToCached]);
 
   return {
     status,
@@ -469,6 +554,7 @@ export const useWhatsAppStateSimple = () => {
     loadEarlierMessages,
     sendMessage,
     sendMedia,
+    markChatAsRead,
     selectChat,
     setIsUserScrolling,
     setShouldAutoScroll

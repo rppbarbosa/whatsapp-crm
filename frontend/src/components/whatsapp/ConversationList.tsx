@@ -252,7 +252,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
@@ -297,7 +297,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
       </div>
 
       {/* Lista de Conversas */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {filteredContacts.length === 0 ? (
           <div className="text-center py-8">
             <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-4 flex items-center justify-center">
@@ -377,33 +377,33 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   </div>
 
                   {/* Informações do Contato */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-start justify-between mb-1">
+                      <h3 className="font-semibold text-gray-900 dark:text-white truncate max-w-[200px]">
                         {contact.name}
                       </h3>
-                                             <div className="flex items-center space-x-2">
-                         {contact.isPinned && (
-                           <Pin className="w-4 h-4 text-blue-500" />
-                         )}
-                         {contact.isFavorite && (
-                           <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                         )}
-                         {contact.isMuted && (
-                           <Bell className="w-4 h-4 text-gray-400" />
-                         )}
-                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                           {formatTime(contact.timestamp || Date.now())}
-                         </span>
-                       </div>
+                      <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                        {contact.isPinned && (
+                          <Pin className="w-3 h-3 text-blue-500" />
+                        )}
+                        {contact.isFavorite && (
+                          <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                        )}
+                        {contact.isMuted && (
+                          <Bell className="w-3 h-3 text-gray-400" />
+                        )}
+                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          {formatTime(contact.timestamp || Date.now())}
+                        </span>
+                      </div>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                    <div className="flex items-start space-x-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 break-words overflow-hidden flex-1 min-w-0 line-clamp-2">
                         {contact.lastMessage || ''}
                       </p>
                       {contact.isGroup && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
                           {contact.memberCount} membros
                         </span>
                       )}
@@ -616,33 +616,33 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                        </div>
 
                        {/* Informações do Contato */}
-                       <div className="flex-1 min-w-0">
-                         <div className="flex items-center justify-between">
-                           <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                       <div className="flex-1 min-w-0 overflow-hidden">
+                         <div className="flex items-start justify-between mb-1">
+                           <h3 className="font-semibold text-gray-900 dark:text-white truncate max-w-[200px]">
                              {contact.name}
                            </h3>
-                           <div className="flex items-center space-x-2">
+                           <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
                              {contact.isPinned && (
-                               <Pin className="w-4 h-4 text-blue-500" />
+                               <Pin className="w-3 h-3 text-blue-500" />
                              )}
                              {contact.isFavorite && (
-                               <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                               <Star className="w-3 h-3 text-yellow-500 fill-current" />
                              )}
                              {contact.isMuted && (
-                               <Bell className="w-4 h-4 text-gray-400" />
+                               <Bell className="w-3 h-3 text-gray-400" />
                              )}
-                             <span className="text-xs text-gray-500 dark:text-gray-400">
+                             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                {formatTime(contact.timestamp || Date.now())}
                              </span>
                            </div>
                          </div>
                          
-                         <div className="flex items-center space-x-2">
-                           <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                         <div className="flex items-start space-x-2">
+                           <p className="text-sm text-gray-600 dark:text-gray-400 break-words overflow-hidden flex-1 min-w-0 line-clamp-2">
                              {contact.lastMessage || ''}
                            </p>
                            {contact.isGroup && (
-                             <span className="text-xs text-gray-500 dark:text-gray-400">
+                             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
                                {contact.memberCount} membros
                              </span>
                            )}
@@ -853,7 +853,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                         {contact.name}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 break-words overflow-hidden line-clamp-2">
                         {contact.lastMessage || ''}
                       </p>
                     </div>

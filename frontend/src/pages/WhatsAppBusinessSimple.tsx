@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { WhatsAppLayout } from '../components/whatsapp/WhatsAppLayout';
 import { ConversationList } from '../components/whatsapp/ConversationList';
 import { ChatView } from '../components/whatsapp/ChatView';
 import { useWhatsAppStateSimple } from '../hooks/useWhatsAppStateSimple';
-import { whatsappApi } from '../services/apiSimple';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 
 const WhatsAppBusinessSimple: React.FC = () => {
@@ -24,6 +22,7 @@ const WhatsAppBusinessSimple: React.FC = () => {
     initializeWhatsApp,
     sendMessage,
     sendMedia,
+    markChatAsRead,
     selectChat,
     loadChats,
     loadEarlierMessages,
@@ -75,10 +74,8 @@ const WhatsAppBusinessSimple: React.FC = () => {
       // Marcar como lida se tinha mensagens não lidas
       if (contact.unreadCount > 0) {
         console.log(`📖 Marcando ${contact.unreadCount} mensagens como lidas para: ${contact.name}`);
-        // Marcar mensagens como lidas no backend
-        whatsappApi.markChatAsRead(contact.id).catch(error => {
-          console.error('Erro ao marcar como lida:', error);
-        });
+        // Marcar mensagens como lidas usando a função do hook
+        await markChatAsRead(contact.id);
       }
     }
   };
@@ -154,27 +151,19 @@ const WhatsAppBusinessSimple: React.FC = () => {
   }
 
   return (
-    <WhatsAppLayout
-      instance={{
-        userInfo: {
-          name: 'WhatsApp Business',
-          phone: '+55 11 99999-9999'
-        }
-      }}
-      onNewChat={handleNewChat}
-      showChat={showChat}
-      onBackToConversations={handleBackToConversations}
-    >
+    <div className="h-full flex bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {!showChat ? (
-        <ConversationList
-          contacts={convertedContacts}
-          selectedContact={selectedContact}
-          onContactSelect={handleContactSelect}
-          onNewChat={handleNewChat}
-          loading={loading}
-          syncing={loading}
-          onSync={handleSync}
-        />
+        <div className="w-full">
+          <ConversationList
+            contacts={convertedContacts}
+            selectedContact={selectedContact}
+            onContactSelect={handleContactSelect}
+            onNewChat={handleNewChat}
+            loading={loading}
+            syncing={loading}
+            onSync={handleSync}
+          />
+        </div>
       ) : (
         selectedContact && (
           <ChatView
@@ -195,7 +184,7 @@ const WhatsAppBusinessSimple: React.FC = () => {
           />
         )
       )}
-    </WhatsAppLayout>
+    </div>
   );
 };
 

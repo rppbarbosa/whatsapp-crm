@@ -1,4 +1,6 @@
 const wppconnect = require('@wppconnect-team/wppconnect');
+const MessagePersistenceService = require('./messagePersistenceService');
+const WebSocketService = require('./websocketService');
 
 class WPPConnectService {
   constructor() {
@@ -324,8 +326,16 @@ class WPPConnectService {
             // Log do filename original da mensagem
             console.log(`📁 Filename original da mensagem ${msg.id}:`, msg.filename);
             
-            // Obter informações da mídia
-            const mediaInfo = await this.getMediaInfo(msg);
+            // CORREÇÃO: Verificar cache primeiro para evitar reprocessamento
+            let mediaInfo;
+            if (this.mediaCache.has(msg.id)) {
+              console.log(`📋 Usando mídia do cache para ${msg.id}`);
+              mediaInfo = this.mediaCache.get(msg.id);
+            } else {
+              // Obter informações da mídia apenas se não estiver no cache
+              mediaInfo = await this.getMediaInfo(msg);
+            }
+            
             formattedMsg.mediaInfo = mediaInfo;
             
             // Log do filename final
@@ -564,8 +574,18 @@ class WPPConnectService {
         console.log(`📊 Mensagem não lida adicionada para ${chatId.substring(0, 20)}... (total: ${currentCount + 1})`);
       }
 
-      // Não fazer carregamento automático aqui para evitar conflitos
-      // O frontend já tem polling que vai detectar as mudanças
+      // CORREÇÃO: Salvar mensagem imediatamente no Supabase
+      try {
+        const result = await MessagePersistenceService.saveMessage(message, this.sessionName);
+        if (result.success) {
+          // Notificar via WebSocket
+          const conversationId = MessagePersistenceService.getConversationId(message.from, message.to);
+          WebSocketService.notifyNewMessage(conversationId, result.data);
+          console.log(`✅ Mensagem persistida e notificada: ${message.id}`);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao persistir mensagem:', error);
+      }
     });
 
     // Listener para mensagens enviadas

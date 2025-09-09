@@ -6,6 +6,10 @@ const compression = require('compression');
 const http = require('http');
 require('dotenv').config();
 
+// Importar serviços
+const WebSocketService = require('./services/websocketService');
+const MessagePersistenceService = require('./services/messagePersistenceService');
+
 // Importar configurações
 const developmentConfig = require('./config/development');
 
@@ -102,6 +106,7 @@ app.get('/health', (req, res) => {
 
 // Importar rotas
 const whatsappWPPConnectRoutes = require('./routes/whatsappWPPConnect');
+const whatsappOptimizedRoutes = require('./routes/whatsappOptimized');
 const customerRoutes = require('./routes/customers');
 // const aiRoutes = require('./routes/ai'); // Temporariamente desabilitado
 const leadsRoutes = require('./routes/leads');
@@ -111,6 +116,7 @@ const authRoutes = require('./routes/auth');
 // Usar rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/whatsapp', whatsappWPPConnectRoutes);
+app.use('/api/whatsapp-optimized', whatsappOptimizedRoutes); // Nova rota otimizada
 app.use('/api/customers', customerRoutes);
 // app.use('/api/ai', aiRoutes); // Temporariamente desabilitado
 app.use('/api/leads', leadsRoutes);
@@ -145,7 +151,7 @@ async function initializeApp() {
       console.log('='.repeat(50));
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
       console.log(`📱 WhatsApp CRM API: http://localhost:${PORT}`);
-      console.log(`🔑 API Key: ${process.env.EVOLUTION_API_KEY || 'test'}`);
+      console.log(`🔑 API Key: ${process.env.EVOLUTION_API_KEY || 'te um test'}`);
       console.log(`💚 Health Check: http://localhost:${PORT}/health`);
       console.log(`🌐 Frontend: http://localhost:3000/manager.html`);
       console.log('='.repeat(50));
@@ -173,6 +179,13 @@ async function initializeApp() {
 
 // Inicializar aplicação
 initializeApp();
+
+// Inicializar WebSocket após o servidor estar pronto
+server.on('listening', () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  WebSocketService.init(server);
+  console.log('✅ WebSocket Service inicializado');
+});
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {

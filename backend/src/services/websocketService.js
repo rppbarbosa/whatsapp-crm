@@ -1,367 +1,244 @@
-const { Server } = require('socket.io');
+const WebSocket = require('ws');
+const EventEmitter = require('events');
 
-class WebSocketService {
+class WebSocketService extends EventEmitter {
   constructor() {
-    this.io = null;
-    this.connectedClients = new Map(); // Map para armazenar clientes por instância
-    this.authenticatedClients = new Set(); // Set para clientes autenticados
+    super();
+    this.wss = null;
+    this.clients = new Map(); // userId -> WebSocket
+    this.rooms = new Map(); // roomId -> Set of userIds
   }
 
-  // Inicializar o servidor WebSocket
-  initialize(server) {
-    this.io = new Server(server, {
-      cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
-        methods: ["GET", "POST"],
-        credentials: true
-      }
+  // Inicializar servidor WebSocket
+  init(server) {
+    this.wss = new WebSocket.Server({ 
+      server,
+      path: '/ws',
+      verifyClient: this.verifyClient.bind(this)
     });
 
-    // Configurar global.io para uso em outros serviços
-    global.io = this.io;
-
-    this.setupEventHandlers();
-    console.log('✅ WebSocket inicializado com sucesso');
+    this.wss.on('connection', this.handleConnection.bind(this));
+    
+    console.log('✅ WebSocket Server iniciado na porta /ws');
   }
 
-  // Configurar handlers de eventos
-  setupEventHandlers() {
-    this.io.on('connection', (socket) => {
-      console.log(`📡 Cliente WebSocket conectado: ${socket.id}`);
+  // Verificar cliente (autenticação)
+  verifyClient(info) {
+    const url = new URL(info.req.url, `http://${info.req.headers.host}`);
+    const token = url.searchParams.get('token');
+    
+    // TODO: Implementar verificação de token JWT
+    // Por enquanto, aceitar todas as conexões
+    return true;
+  }
 
-      // Evento de autenticação (desabilitado - usando API REST)
-      socket.on('authenticate', (data) => {
-        const { apiKey } = data;
-        
-        if (this.authenticateClient(apiKey)) {
-          this.authenticatedClients.add(socket.id);
-          
-          socket.emit('authenticated', { 
-            success: true, 
-            message: 'Autenticado com sucesso via WebSocket'
-          });
-          
-          console.log(`✅ Cliente ${socket.id} autenticado via WebSocket`);
-        } else {
-          socket.emit('authenticated', { 
-            success: false, 
-            message: 'API Key inválida' 
-          });
-          
-          console.log(`❌ Falha na autenticação do cliente ${socket.id}`);
-        }
-      });
-
-      // Evento de desconexão
-      socket.on('disconnect', () => {
-        console.log(`📡 Cliente WebSocket desconectado: ${socket.id}`);
-        this.removeClient(socket.id);
-      });
-
-      // Evento de join em uma instância
-      socket.on('join_instance', (instanceName) => {
-        if (this.authenticatedClients.has(socket.id)) {
-          this.addClientToInstance(socket, instanceName);
-          socket.emit('joined_instance', { 
-            success: true, 
-            instanceName 
-          });
-        }
-      });
-
-      // Evento de leave de uma instância
-      socket.on('leave_instance', (instanceName) => {
-        this.removeClientFromInstance(socket.id, instanceName);
-        socket.emit('left_instance', { 
-          success: true, 
-          instanceName 
-        });
-      });
-
-      // Evento para sincronizar conversas
-      socket.on('sync_conversations', async (data) => {
-        if (this.authenticatedClients.has(socket.id)) {
-          try {
-            const whatsappWebService = require('./whatsappWebService');
-            const chats = await whatsappWebService.getChats();
-            
-            // Formatar conversas para o frontend
-            const formattedChats = chats.map(chat => ({
-              id: chat.id._serialized,
-              name: chat.name || chat.id.user,
-              isGroup: chat.isGroup || false,
-              lastMessage: chat.lastMessage ? {
-                body: chat.lastMessage.body || '',
-                timestamp: chat.lastMessage.timestamp * 1000,
-                from: chat.lastMessage.from,
-                type: chat.lastMessage.type
-              } : null,
-              unreadCount: chat.unreadCount || 0,
-              timestamp: chat.lastMessage ? chat.lastMessage.timestamp * 1000 : Date.now()
-            }));
-            
-            socket.emit('conversations_synced', {
-              success: true,
-              data: formattedChats
-            });
-            
-            console.log(`📡 Conversas sincronizadas para cliente ${socket.id}: ${formattedChats.length} conversas`);
-          } catch (error) {
-            console.error('❌ Erro ao sincronizar conversas:', error);
-            socket.emit('conversations_synced', {
-              success: false,
-              error: error.message
-            });
-          }
-        }
-      });
-
-      // Evento para obter mensagens de uma conversa
-      socket.on('get_chat_messages', async (data) => {
-        if (this.authenticatedClients.has(socket.id)) {
-          try {
-            const { chatId, limit = 50, beforeId } = data;
-            const whatsappWebService = require('./whatsappWebService');
-            
-            const messages = await whatsappWebService.getChatMessages(chatId, limit, beforeId);
-            
-            socket.emit('chat_messages_loaded', {
-              success: true,
-              chatId,
-              data: messages
-            });
-            
-            console.log(`📡 Mensagens carregadas para conversa ${chatId}: ${messages.length} mensagens`);
-          } catch (error) {
-            console.error('❌ Erro ao carregar mensagens:', error);
-            socket.emit('chat_messages_loaded', {
-              success: false,
-              chatId: data.chatId,
-              error: error.message
-            });
-          }
-        }
-      });
-
-      // Evento para marcar conversa como lida
-      socket.on('mark_chat_read', async (data) => {
-        if (this.authenticatedClients.has(socket.id)) {
-          try {
-            const { chatId } = data;
-            const whatsappWebService = require('./whatsappWebService');
-            
-            await whatsappWebService.markChatAsRead(chatId);
-            
-            socket.emit('chat_marked_read', {
-              success: true,
-              chatId
-            });
-            
-            // Notificar outros clientes sobre a mudança
-            socket.broadcast.emit('chat_updated', {
-              type: 'marked_read',
-              chatId
-            });
-            
-            console.log(`📡 Conversa ${chatId} marcada como lida`);
-          } catch (error) {
-            console.error('❌ Erro ao marcar conversa como lida:', error);
-            socket.emit('chat_marked_read', {
-              success: false,
-              chatId: data.chatId,
-              error: error.message
-            });
-          }
-        }
-      });
-
-      // Evento para obter informações de um contato
-      socket.on('get_contact_info', async (data) => {
-        if (this.authenticatedClients.has(socket.id)) {
-          try {
-            const { contactId } = data;
-            const whatsappWebService = require('./whatsappWebService');
-            
-            const contact = await whatsappWebService.getContactInfo(contactId);
-            
-            socket.emit('contact_info_loaded', {
-              success: true,
-              contactId,
-              data: contact
-            });
-            
-            console.log(`📡 Informações do contato ${contactId} carregadas`);
-          } catch (error) {
-            console.error('❌ Erro ao carregar informações do contato:', error);
-            socket.emit('contact_info_loaded', {
-              success: false,
-              contactId: data.contactId,
-              error: error.message
-            });
-          }
-        }
-      });
-
-      // Evento para responder diretamente a uma mensagem
-      socket.on('reply_to_message', async (data) => {
-        if (this.authenticatedClients.has(socket.id)) {
-          try {
-            const { messageId, replyText } = data;
-            const whatsappWebService = require('./whatsappWebService');
-            
-            const result = await whatsappWebService.replyToMessage(
-              'default', // Para MVP, usar instância padrão
-              messageId, 
-              replyText
-            );
-            
-            socket.emit('message_replied', {
-              success: true,
-              messageId,
-              data: result
-            });
-            
-            // Notificar outros clientes sobre a nova mensagem
-            socket.broadcast.emit('new_message', {
-              type: 'reply',
-              messageId,
-              replyTo: messageId,
-              content: replyText
-            });
-            
-            console.log(`📡 Mensagem ${messageId} respondida com sucesso`);
-          } catch (error) {
-            console.error('❌ Erro ao responder mensagem:', error);
-            socket.emit('message_replied', {
-              success: false,
-              messageId: data.messageId,
-              error: error.message
-            });
-          }
-        }
-      });
+  // Gerenciar nova conexão
+  handleConnection(ws, req) {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const userId = url.searchParams.get('userId') || 'anonymous';
+    
+    console.log(`🔌 Nova conexão WebSocket: ${userId}`);
+    
+    // Armazenar cliente
+    this.clients.set(userId, ws);
+    
+    // Configurar eventos do cliente
+    ws.on('message', (data) => this.handleMessage(userId, data));
+    ws.on('close', () => this.handleDisconnect(userId));
+    ws.on('error', (error) => this.handleError(userId, error));
+    
+    // Enviar confirmação de conexão
+    this.sendToUser(userId, {
+      type: 'connection_established',
+      timestamp: Date.now()
     });
   }
 
-  // Autenticar cliente
-  authenticateClient(apiKey) {
-    const expectedKey = process.env.EVOLUTION_API_KEY || 'whatsapp-crm-evolution-key-2024-secure';
-    return apiKey === expectedKey;
-  }
-
-  // Adicionar cliente a uma instância
-  addClientToInstance(socket, instanceName) {
-    // Se for 'all', adicionar a todas as instâncias existentes
-    if (instanceName === 'all') {
-      // Adicionar a todas as instâncias existentes
-      for (const [existingInstanceName, clients] of this.connectedClients.entries()) {
-        clients.add(socket.id);
+  // Processar mensagem do cliente
+  handleMessage(userId, data) {
+    try {
+      const message = JSON.parse(data);
+      
+      switch (message.type) {
+        case 'join_room':
+          this.joinRoom(userId, message.roomId);
+          break;
+        case 'leave_room':
+          this.leaveRoom(userId, message.roomId);
+          break;
+        case 'ping':
+          this.sendToUser(userId, { type: 'pong', timestamp: Date.now() });
+          break;
+        default:
+          console.log(`📨 Mensagem desconhecida de ${userId}:`, message.type);
       }
-      
-      // Adicionar metadados ao socket
-      socket.instanceName = 'all';
-      socket.allInstances = true;
-      
-      console.log(`📱 Cliente ${socket.id} adicionado a TODAS as instâncias. Total: ${this.connectedClients.size}`);
-      return;
-    }
-    
-    if (!this.connectedClients.has(instanceName)) {
-      this.connectedClients.set(instanceName, new Set());
-    }
-    
-    const clients = this.connectedClients.get(instanceName);
-    clients.add(socket.id);
-    
-    // Adicionar metadados ao socket
-    socket.instanceName = instanceName;
-    
-    console.log(`📱 Cliente ${socket.id} adicionado à instância ${instanceName}. Total: ${clients.size}`);
-  }
-
-  // Remover cliente de uma instância
-  removeClientFromInstance(socketId, instanceName) {
-    const clients = this.connectedClients.get(instanceName);
-    if (clients) {
-      clients.delete(socketId);
-      console.log(`📱 Cliente ${socketId} removido da instância ${instanceName}. Total: ${clients.size}`);
+    } catch (error) {
+      console.error(`❌ Erro ao processar mensagem de ${userId}:`, error);
     }
   }
 
-  // Remover cliente completamente
-  removeClient(socketId) {
-    this.authenticatedClients.delete(socketId);
+  // Cliente desconectou
+  handleDisconnect(userId) {
+    console.log(`🔌 Cliente desconectado: ${userId}`);
     
-    // Remover de todas as instâncias
-    for (const [instanceName, clients] of this.connectedClients.entries()) {
-      clients.delete(socketId);
-    }
-  }
-
-  // Enviar evento para uma instância específica
-  emitToInstance(instanceName, event, data) {
-    const clients = this.connectedClients.get(instanceName);
-    if (clients && clients.size > 0) {
-      console.log(`📤 Enviando evento ${event} para ${clients.size} clientes da instância ${instanceName}`);
-      
-      // Enviar para todos os clientes da instância
-      for (const socketId of clients) {
-        const socket = this.io.sockets.sockets.get(socketId);
-        if (socket) {
-          socket.emit(event, data);
-        }
+    // Remover de todas as salas
+    for (const [roomId, users] of this.rooms.entries()) {
+      users.delete(userId);
+      if (users.size === 0) {
+        this.rooms.delete(roomId);
       }
     }
     
-    // Também enviar para clientes que estão conectados a 'all'
-    const allClients = this.connectedClients.get('all');
-    if (allClients && allClients.size > 0) {
-      console.log(`📤 Enviando evento ${event} para ${allClients.size} clientes 'all' da instância ${instanceName}`);
-      
-      for (const socketId of allClients) {
-        const socket = this.io.sockets.sockets.get(socketId);
-        if (socket && socket.allInstances) {
-          socket.emit(event, data);
-        }
-      }
+    // Remover cliente
+    this.clients.delete(userId);
+  }
+
+  // Erro no cliente
+  handleError(userId, error) {
+    console.error(`❌ Erro no WebSocket de ${userId}:`, error);
+    this.handleDisconnect(userId);
+  }
+
+  // Entrar em uma sala (conversa)
+  joinRoom(userId, roomId) {
+    if (!this.rooms.has(roomId)) {
+      this.rooms.set(roomId, new Set());
     }
     
-    if ((!clients || clients.size === 0) && (!allClients || allClients.size === 0)) {
-      console.log(`⚠️ Nenhum cliente conectado para a instância ${instanceName}`);
+    this.rooms.get(roomId).add(userId);
+    console.log(`👥 ${userId} entrou na sala ${roomId}`);
+    
+    this.sendToUser(userId, {
+      type: 'room_joined',
+      roomId: roomId,
+      timestamp: Date.now()
+    });
+  }
+
+  // Sair de uma sala
+  leaveRoom(userId, roomId) {
+    if (this.rooms.has(roomId)) {
+      this.rooms.get(roomId).delete(userId);
+      
+      if (this.rooms.get(roomId).size === 0) {
+        this.rooms.delete(roomId);
+      }
+      
+      console.log(`👋 ${userId} saiu da sala ${roomId}`);
     }
   }
 
-  // Enviar evento para todos os clientes
-  emitToAll(event, data) {
-    this.io.emit(event, data);
+  // Enviar mensagem para usuário específico
+  sendToUser(userId, data) {
+    const ws = this.clients.get(userId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify(data));
+        return true;
+      } catch (error) {
+        console.error(`❌ Erro ao enviar para ${userId}:`, error);
+        this.handleDisconnect(userId);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  // Enviar mensagem para sala (conversa)
+  sendToRoom(roomId, data, excludeUserId = null) {
+    if (!this.rooms.has(roomId)) {
+      return 0;
+    }
+
+    let sentCount = 0;
+    const users = this.rooms.get(roomId);
+    
+    for (const userId of users) {
+      if (excludeUserId && userId === excludeUserId) {
+        continue;
+      }
+      
+      if (this.sendToUser(userId, data)) {
+        sentCount++;
+      }
+    }
+    
+    return sentCount;
+  }
+
+  // Notificar nova mensagem
+  notifyNewMessage(conversationId, message) {
+    const data = {
+      type: 'new_message',
+      conversationId: conversationId,
+      message: message,
+      timestamp: Date.now()
+    };
+
+    const sentCount = this.sendToRoom(conversationId, data);
+    console.log(`📨 Nova mensagem notificada para ${sentCount} usuários na conversa ${conversationId}`);
+    
+    return sentCount;
+  }
+
+  // Notificar status de mensagem (enviada, entregue, lida)
+  notifyMessageStatus(messageId, status, conversationId) {
+    const data = {
+      type: 'message_status',
+      messageId: messageId,
+      status: status,
+      conversationId: conversationId,
+      timestamp: Date.now()
+    };
+
+    const sentCount = this.sendToRoom(conversationId, data);
+    console.log(`📊 Status de mensagem notificado: ${messageId} -> ${status}`);
+    
+    return sentCount;
+  }
+
+  // Notificar status do WhatsApp (conectado, desconectado, QR)
+  notifyWhatsAppStatus(status, data = {}) {
+    const message = {
+      type: 'whatsapp_status',
+      status: status,
+      data: data,
+      timestamp: Date.now()
+    };
+
+    let sentCount = 0;
+    for (const userId of this.clients.keys()) {
+      if (this.sendToUser(userId, message)) {
+        sentCount++;
+      }
+    }
+    
+    console.log(`📱 Status do WhatsApp notificado para ${sentCount} usuários: ${status}`);
+    return sentCount;
   }
 
   // Obter estatísticas
   getStats() {
-    const stats = {
-      totalClients: this.authenticatedClients.size,
-      instances: {}
+    return {
+      totalClients: this.clients.size,
+      totalRooms: this.rooms.size,
+      rooms: Array.from(this.rooms.entries()).map(([roomId, users]) => ({
+        roomId,
+        userCount: users.size
+      }))
     };
-
-    for (const [instanceName, clients] of this.connectedClients.entries()) {
-      stats.instances[instanceName] = {
-        connectedClients: clients.size,
-        clientIds: Array.from(clients)
-      };
-    }
-
-    return stats;
   }
 
-  // Health check
-  healthCheck() {
-    return {
-      status: 'healthy',
-      totalClients: this.authenticatedClients.size,
-      totalInstances: this.connectedClients.size,
-      timestamp: new Date().toISOString()
-    };
+  // Broadcast para todos os clientes
+  broadcast(data) {
+    let sentCount = 0;
+    for (const userId of this.clients.keys()) {
+      if (this.sendToUser(userId, data)) {
+        sentCount++;
+      }
+    }
+    return sentCount;
   }
 }
 
-module.exports = new WebSocketService(); 
+module.exports = new WebSocketService();

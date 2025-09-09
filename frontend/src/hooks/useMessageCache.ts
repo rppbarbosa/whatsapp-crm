@@ -13,6 +13,14 @@ interface CachedMessage {
     body: string;
     author: string;
   };
+  mediaInfo?: {
+    type: string;
+    url: string;
+    filename: string;
+    hasMedia: boolean;
+    mimetype?: string;
+    size?: number;
+  };
 }
 
 interface CachedChat {
@@ -79,24 +87,38 @@ export const useMessageCache = () => {
     const existing = cacheRef.current.get(chatId);
     
     if (existing) {
-      // Mesclar mensagens existentes com novas
+      // CORREÇÃO: Mesclar mensagens preservando mediaInfo existente
+      const existingMessagesMap = new Map(existing.messages.map(m => [m.id, m]));
+      const mergedMessages = messages.map(newMsg => {
+        const existingMsg = existingMessagesMap.get(newMsg.id);
+        
+        // Se mensagem existe no cache e tem mediaInfo, preservar
+        if (existingMsg && existingMsg.mediaInfo && !newMsg.mediaInfo) {
+          return {
+            ...newMsg,
+            mediaInfo: existingMsg.mediaInfo
+          };
+        }
+        
+        return newMsg;
+      });
+      
+      // Adicionar mensagens novas que não existem no cache
       const existingIds = new Set(existing.messages.map(m => m.id));
       const newMessages = messages.filter(m => !existingIds.has(m.id));
       
-      if (newMessages.length > 0) {
-        const allMessages = [...existing.messages, ...newMessages]
-          .sort((a, b) => a.timestamp - b.timestamp);
-        
-        cacheRef.current.set(chatId, {
-          chatId,
-          messages: allMessages,
-          lastUpdated: now,
-          totalMessages: Math.max(totalMessages, allMessages.length)
-        });
-        
-        console.log(`📦 Cache atualizado para ${chatId.substring(0, 20)}...: +${newMessages.length} mensagens (total: ${allMessages.length})`);
-        saveCache();
-      }
+      const allMessages = [...mergedMessages, ...newMessages]
+        .sort((a, b) => a.timestamp - b.timestamp);
+      
+      cacheRef.current.set(chatId, {
+        chatId,
+        messages: allMessages,
+        lastUpdated: now,
+        totalMessages: Math.max(totalMessages, allMessages.length)
+      });
+      
+      console.log(`📦 Cache atualizado para ${chatId.substring(0, 20)}...: ${allMessages.length} mensagens (${allMessages.filter(m => m.mediaInfo).length} com mídia)`);
+      saveCache();
     } else {
       // Primeira vez salvando para este chat
       cacheRef.current.set(chatId, {

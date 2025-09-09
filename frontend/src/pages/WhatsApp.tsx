@@ -286,18 +286,14 @@ const WhatsApp: React.FC = () => {
         loadContacts();
       }, 60000);
 
-      // Mensagens: a cada 10 segundos (apenas se tiver chat selecionado)
-      if (selectedContact) {
-        messagesInterval = setInterval(() => {
-          loadMessages(selectedContact.id);
-        }, 10000);
-      }
+      // REMOVIDO: Polling de mensagens duplicado - já existe no useWhatsAppStateSimple
+      // O polling de mensagens é gerenciado pelo hook useWhatsAppStateSimple
     }
 
     return () => {
       clearInterval(statusInterval);
       clearInterval(chatsInterval);
-      clearInterval(messagesInterval);
+      // messagesInterval removido - não é mais necessário
     };
   }, [status.isReady, loadStatus, loadContacts, loadMessages, selectedContact]);
 

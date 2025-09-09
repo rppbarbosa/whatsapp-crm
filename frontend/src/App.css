@@ -3,6 +3,14 @@
   min-height: 100vh;
 }
 
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Estilos para WhatsApp Manager */
 .card {
   @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
