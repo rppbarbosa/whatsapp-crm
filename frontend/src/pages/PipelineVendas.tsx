@@ -160,7 +160,7 @@ const PipelineVendas: React.FC = () => {
       leads: leads.filter(lead => lead.status === column.id)
     }));
     setColumns(updatedColumns);
-  }, [leads, columns]);
+  }, [leads]); // CORREÇÃO: Remover 'columns' das dependências para evitar loop infinito
 
   // Filtrar leads baseado na busca e prioridade
   const filteredLeads = leads.filter(lead => {
@@ -182,7 +182,7 @@ const PipelineVendas: React.FC = () => {
       leads: filteredLeads.filter(lead => lead.status === column.id)
     }));
     setColumns(updatedColumns);
-  }, [filteredLeads, columns]);
+  }, [filteredLeads]); // CORREÇÃO: Remover 'columns' das dependências para evitar loop infinito
 
   // Função para abrir modal de movimentação
   const handleMoveLead = (lead: Lead) => {
