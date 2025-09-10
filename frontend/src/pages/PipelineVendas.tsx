@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Filter,
@@ -13,11 +13,14 @@ import {
   X,
   Calendar
 } from 'lucide-react';
-import { Lead, Task } from '../components/pipeline/LeadCard';
+import { Lead } from '../components/pipeline/LeadCard';
 import PipelineContainer from '../components/pipeline/PipelineContainer';
 import ScheduleContactModal from '../components/pipeline/ScheduleContactModal';
-import ScheduledContactsList from '../components/pipeline/ScheduledContactsList';
+// Scheduled contacts foi removido
 import NewLeadModal from '../components/leads/NewLeadModal';
+import UnifiedTaskModal from '../components/tasks/UnifiedTaskModal';
+import { useTasks } from '../contexts/TaskContext';
+import { leadsService, LeadStats } from '../services/leadsService';
 
 interface Column {
   id: string;
@@ -28,75 +31,80 @@ interface Column {
 }
 
 const PipelineVendas: React.FC = () => {
-  const [leads, setLeads] = useState<Lead[]>([
-    {
-      id: '1',
-      name: 'João Silva',
-      company: 'TechCorp Ltda',
-      phone: '(11) 99999-9999',
-      email: 'joao@techcorp.com',
-      value: 15000,
-      priority: 'alta',
-      nextContact: '19/12/2024',
-      status: 'prospecto',
-      isOverdue: true,
-      tasks: []
-    },
-    {
-      id: '2',
-      name: 'Maria Santos',
-      company: 'Inovação Digital',
-      phone: '(11) 88888-8888',
-      email: 'maria@inovacao.com',
-      value: 25000,
-      priority: 'media',
-      nextContact: '18/12/2024',
-      status: 'contato',
-      isOverdue: true,
-      tasks: []
-    },
-    {
-      id: '3',
-      name: 'Carlos Oliveira',
-      company: 'StartupXYZ',
-      phone: '(11) 77777-7777',
-      email: 'carlos@startup.com',
-      value: 8000,
-      priority: 'baixa',
-      nextContact: '21/12/2024',
-      status: 'proposta',
-      isOverdue: true,
-      tasks: []
-    },
-    {
-      id: '4',
-      name: 'Ana Costa',
-      company: 'Empresa ABC',
-      phone: '(11) 66666-6666',
-      email: 'ana@abc.com',
-      value: 35000,
-      priority: 'alta',
-      nextContact: '17/12/2024',
-      status: 'negociacao',
-      isOverdue: true,
-      tasks: []
-    },
-    {
-      id: '5',
-      name: 'Pedro Lima',
-      company: 'Corporação 123',
-      phone: '(11) 55555-5555',
-      email: 'pedro@corp123.com',
-      value: 20000,
-      priority: 'media',
-      nextContact: '24/12/2024',
-      status: 'fechado',
-      isOverdue: true,
-      tasks: []
-    }
-  ]);
+  const { addTask } = useTasks();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [stats, setStats] = useState<LeadStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [columns, setColumns] = useState<Column[]>([
+  // Carregar dados do banco
+  useEffect(() => {
+    loadLeads();
+    loadStats();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadLeads = async () => {
+    try {
+      setLoading(true);
+      const apiLeads = await leadsService.getLeads();
+      
+      // Converter leads da API para o formato do frontend
+      const convertedLeads: Lead[] = apiLeads.map(apiLead => ({
+        id: apiLead.id,
+        name: apiLead.name,
+        company: apiLead.company || '',
+        phone: apiLead.phone || '',
+        email: apiLead.email || '',
+        value: 0, // Valor não está no schema atual
+        priority: mapApiPriorityToFrontend(apiLead.priority),
+        nextContact: new Date(apiLead.created_at).toLocaleDateString('pt-BR'),
+        status: mapApiStatusToFrontend(apiLead.status) as 'prospecto' | 'contato' | 'proposta' | 'negociacao' | 'fechado' | 'perdido',
+        isOverdue: false, // Calcular baseado na data
+        tasks: []
+      }));
+      
+      setLeads(convertedLeads);
+    } catch (err) {
+      setError('Erro ao carregar leads');
+      console.error('Erro ao carregar leads:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const statsData = await leadsService.getStats();
+      setStats(statsData);
+    } catch (err) {
+      console.error('Erro ao carregar estatísticas:', err);
+    }
+  };
+
+  const mapApiStatusToFrontend = (apiStatus: string): 'prospecto' | 'contato' | 'proposta' | 'negociacao' | 'fechado' | 'perdido' => {
+    const statusMap: Record<string, string> = {
+      'lead-bruto': 'prospecto',
+      'contato-realizado': 'contato',
+      'qualificado': 'proposta',
+      'proposta-enviada': 'proposta',
+      'follow-up': 'negociacao',
+      'fechado-ganho': 'fechado',
+      'fechado-perdido': 'perdido'
+    };
+    return (statusMap[apiStatus] as 'prospecto' | 'contato' | 'proposta' | 'negociacao' | 'fechado' | 'perdido') || 'prospecto';
+  };
+
+  const mapApiPriorityToFrontend = (apiPriority: string): 'baixa' | 'media' | 'alta' => {
+    const priorityMap: Record<string, string> = {
+      'low': 'baixa',
+      'medium': 'media',
+      'high': 'alta',
+      'urgent': 'alta'
+    };
+    return (priorityMap[apiPriority] as 'baixa' | 'media' | 'alta') || 'media';
+  };
+
+  const [columns] = useState<Column[]>([
     {
       id: 'prospecto',
       title: 'Prospecto',
@@ -145,9 +153,8 @@ const PipelineVendas: React.FC = () => {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showScheduledContacts, setShowScheduledContacts] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [targetColumn, setTargetColumn] = useState<string>('');
+  // const [targetColumn, setTargetColumn] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('todas');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -183,44 +190,12 @@ const PipelineVendas: React.FC = () => {
 
   // Função para confirmar movimentação e abrir modal de tarefa
   const handleConfirmMove = (newStatus: string) => {
-    setTargetColumn(newStatus);
+    // setTargetColumn(newStatus); // Removido - não está sendo usado
     setShowMoveModal(false);
     setShowTaskModal(true);
   };
 
-  // Função para salvar tarefa e mover o lead
-  const handleSaveTask = (taskData: Omit<Task, 'id'>) => {
-    if (selectedLead && targetColumn) {
-      const newTask: Task = {
-        ...taskData,
-        id: Date.now().toString()
-      };
 
-      setLeads(prevLeads => 
-        prevLeads.map(lead => 
-          lead.id === selectedLead.id 
-            ? { 
-                ...lead, 
-                status: targetColumn as Lead['status'],
-                tasks: [...(lead.tasks || []), newTask]
-              }
-            : lead
-        )
-      );
-
-      setShowTaskModal(false);
-      setSelectedLead(null);
-      setTargetColumn('');
-    }
-  };
-
-  // Função para cancelar movimentação
-  const handleCancelMove = () => {
-    setShowMoveModal(false);
-    setShowTaskModal(false);
-    setSelectedLead(null);
-    setTargetColumn('');
-  };
 
   // Função para adicionar novo lead
   const handleAddLead = (newLead: Omit<Lead, 'id' | 'tasks'>) => {
@@ -293,10 +268,40 @@ const PipelineVendas: React.FC = () => {
   const hasActiveFilters = searchTerm !== '' || priorityFilter !== 'todas';
 
   // Calcular métricas
-  const totalLeads = leads.length;
+  const totalLeads = stats?.total || leads.length;
   const totalValue = leads.reduce((sum, lead) => sum + lead.value, 0);
   const closedValue = leads.filter(lead => lead.status === 'fechado').reduce((sum, lead) => sum + lead.value, 0);
   const conversionRate = totalLeads > 0 ? (leads.filter(lead => lead.status === 'fechado').length / totalLeads) * 100 : 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-all duration-500 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Carregando leads...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-all duration-500 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 dark:text-red-400 mb-4">
+            <XCircle className="w-12 h-12 mx-auto" />
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={loadLeads}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-all duration-500" onClick={closeAllMenus}>
@@ -312,13 +317,6 @@ const PipelineVendas: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowScheduledContacts(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 flex items-center"
-            >
-              <Calendar className="w-5 h-5 mr-2" />
-              Agendamentos ({scheduledContacts.filter(c => new Date(`${c.date}T${c.time}`) > new Date()).length})
-            </button>
             <button
               onClick={() => setShowNewLeadModal(true)}
               className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 flex items-center"
@@ -509,16 +507,6 @@ const PipelineVendas: React.FC = () => {
         />
       )}
 
-      {/* Modal de Tarefa */}
-      {showTaskModal && selectedLead && (
-        <TaskModal
-          lead={selectedLead}
-          targetColumn={targetColumn}
-          onSave={handleSaveTask}
-          onCancel={handleCancelMove}
-        />
-      )}
-
       {/* Modal de Agendamento */}
       {showScheduleModal && selectedLead && (
         <ScheduleContactModal
@@ -528,13 +516,27 @@ const PipelineVendas: React.FC = () => {
         />
       )}
 
-      {/* Modal de Agendamentos */}
-      {showScheduledContacts && (
-        <ScheduledContactsList
-          scheduledContacts={scheduledContacts}
-          onClose={() => setShowScheduledContacts(false)}
-        />
-      )}
+      {/* Modal de Tarefa Unificado */}
+      <UnifiedTaskModal
+        isOpen={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        onSave={(taskData) => {
+          addTask(taskData);
+          setShowTaskModal(false);
+        }}
+        leadId={selectedLead?.id}
+        leadName={selectedLead?.name}
+        leads={leads.map(lead => ({ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email }))}
+        assignees={[
+          { id: '1', name: 'Ana Costa' },
+          { id: '2', name: 'Pedro Lima' },
+          { id: '3', name: 'Sofia Alves' },
+        ]}
+        mode="quick_create"
+        title="Nova Tarefa - Negociação"
+      />
+
+      {/* Modal de Agendamentos removido */}
     </div>
   );
 };
@@ -551,9 +553,9 @@ const MoveLeadModal: React.FC<MoveLeadModalProps> = ({ lead, columns, onConfirm,
   const availableColumns = columns.filter(col => col.id !== lead.status);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Mover Lead
           </h3>
@@ -565,7 +567,7 @@ const MoveLeadModal: React.FC<MoveLeadModalProps> = ({ lead, columns, onConfirm,
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Mover <strong>{lead.name}</strong> para qual etapa do pipeline?
           </p>
@@ -577,14 +579,14 @@ const MoveLeadModal: React.FC<MoveLeadModalProps> = ({ lead, columns, onConfirm,
                 onClick={() => onConfirm(column.id)}
                 className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-3"
               >
-                <div className={`w-4 h-4 rounded-full ${column.color}`}></div>
-                <span className="font-medium text-gray-900 dark:text-white">{column.title}</span>
+                <div className={`w-4 h-4 rounded-full ${column.color} flex-shrink-0`}></div>
+                <span className="font-medium text-gray-900 dark:text-white truncate">{column.title}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
           <button
             onClick={onClose}
             className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -596,168 +598,5 @@ const MoveLeadModal: React.FC<MoveLeadModalProps> = ({ lead, columns, onConfirm,
     </div>
   );
 };
-
-// Modal para criação de tarefa
-interface TaskModalProps {
-  lead: Lead;
-  targetColumn: string;
-  onSave: (taskData: Omit<Task, 'id'>) => void;
-  onCancel: () => void;
-}
-
-const TaskModal: React.FC<TaskModalProps> = ({ lead, targetColumn, onSave, onCancel }) => {
-  const [taskData, setTaskData] = useState({
-    title: '',
-    description: '',
-    dueDate: '',
-    assignedTo: '',
-    priority: 'media' as Task['priority'],
-    status: 'pendente' as Task['status']
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(taskData);
-  };
-
-  const getColumnTitle = (columnId: string) => {
-    const column = {
-      'prospecto': 'Prospecto',
-      'contato': 'Contato',
-      'proposta': 'Proposta',
-      'negociacao': 'Negociação',
-      'fechado': 'Fechado',
-      'perdido': 'Perdido'
-    }[columnId] || columnId;
-    
-    return column;
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Nova Tarefa - {getColumnTitle(targetColumn)}
-          </h3>
-          <button
-            onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Título da Tarefa
-            </label>
-            <input
-              type="text"
-              required
-              value={taskData.title}
-              onChange={(e) => setTaskData(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Ex: Fazer demonstração do produto"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Descrição
-            </label>
-            <textarea
-              rows={3}
-              value={taskData.description}
-              onChange={(e) => setTaskData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Detalhes da tarefa..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Data de Vencimento
-              </label>
-              <input
-                type="date"
-                required
-                value={taskData.dueDate}
-                onChange={(e) => setTaskData(prev => ({ ...prev, dueDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Responsável
-              </label>
-              <input
-                type="text"
-                required
-                value={taskData.assignedTo}
-                onChange={(e) => setTaskData(prev => ({ ...prev, assignedTo: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                placeholder="Nome do responsável"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Prioridade
-              </label>
-              <select
-                value={taskData.priority}
-                onChange={(e) => setTaskData(prev => ({ ...prev, priority: e.target.value as Task['priority'] }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="baixa">Baixa</option>
-                <option value="media">Média</option>
-                <option value="alta">Alta</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Status
-              </label>
-              <select
-                value={taskData.status}
-                onChange={(e) => setTaskData(prev => ({ ...prev, status: e.target.value as Task['status'] }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="pendente">Pendente</option>
-                <option value="em_andamento">Em Andamento</option>
-                <option value="concluida">Concluída</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300"
-            >
-              Salvar e Mover
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-
 
 export default PipelineVendas;

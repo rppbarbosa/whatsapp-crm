@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   Search, 
@@ -11,68 +11,22 @@ import {
   User,
   Building
 } from 'lucide-react';
-import { whatsappApi } from '../services/api';
 import { toast } from 'react-hot-toast';
 import NewLeadModal from '../components/leads/NewLeadModal';
 import { Lead } from '../components/pipeline/LeadCard';
+import { useLeads } from '../contexts/LeadContext';
 
 export default function Leads() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { leads, addLead } = useLeads();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  useEffect(() => {
-    loadLeads();
-  }, []);
-
-  const loadLeads = async () => {
+  const handleAddLead = (newLead: Omit<Lead, 'id' | 'tasks'>) => {
     try {
-      setLoading(true);
-      const response = await whatsappApi.get('/api/leads');
-      if (response.data.success) {
-        setLeads(response.data.data || []);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar leads:', error);
-      toast.error('Erro ao carregar leads');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddLead = async (newLead: Omit<Lead, 'id' | 'tasks'>) => {
-    try {
-      const leadData = {
-        name: newLead.name,
-        email: newLead.email || null,
-        phone: newLead.phone,
-        company: newLead.company || null,
-        value: newLead.value || null,
-        priority: newLead.priority,
-        nextContact: newLead.nextContact || null,
-        source: newLead.source || 'manual',
-        status: 'lead-bruto',
-        notes: '',
-        // Adicionar todos os campos do modal
-        cargo: (newLead as any).cargo || null,
-        linkedin: (newLead as any).linkedin || null,
-        website: (newLead as any).website || null,
-        setor: (newLead as any).setor || null,
-        tamanhoEmpresa: (newLead as any).tamanhoEmpresa || null,
-        industria: (newLead as any).industria || null,
-        observacoes: (newLead as any).observacoes || null,
-        tags: (newLead as any).tags || null
-      };
-      
-      const response = await whatsappApi.post('/api/leads', leadData);
-      if (response.data && response.data.success) {
-        setShowAddModal(false);
-        loadLeads();
-      } else {
-        throw new Error(response.data?.error || 'Erro ao criar lead');
-      }
+      addLead(newLead);
+      toast.success('Lead criado com sucesso!');
+      setShowAddModal(false);
     } catch (error) {
       console.error('Erro ao criar lead:', error);
       toast.error('Erro ao criar lead');
@@ -107,14 +61,6 @@ export default function Leads() {
       default: return status;
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">

@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { ChatView } from '../components/whatsapp/ChatView';
 import { ConversationList, type WhatsAppContact } from '../components/whatsapp/ConversationList';
+import NewLeadModal from '../components/leads/NewLeadModal';
+import { Lead } from '../components/pipeline/LeadCard';
+import { useLeads } from '../contexts/LeadContext';
 
 interface WhatsAppStatus {
   status: 'disconnected' | 'connecting' | 'qr_ready' | 'connected' | 'error' | 'initializing';
@@ -26,6 +29,13 @@ interface WhatsAppMessage {
 }
 
 const WhatsApp: React.FC = () => {
+  const { addLead } = useLeads();
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [selectedContactForLead, setSelectedContactForLead] = useState<WhatsAppContact | null>(null);
+  
+  // Logs para rastrear mudanças de estado
+  console.log('🔥 ESTADO ATUAL - showLeadModal:', showLeadModal);
+  console.log('🔥 ESTADO ATUAL - selectedContactForLead:', selectedContactForLead);
   const [status, setStatus] = useState<WhatsAppStatus>({
     status: 'disconnected',
     isReady: false
@@ -297,6 +307,34 @@ const WhatsApp: React.FC = () => {
     };
   }, [status.isReady, loadStatus, loadContacts, loadMessages, selectedContact]);
 
+  const handleCreateLead = (contact: WhatsAppContact) => {
+    console.log('🔥 ===== INÍCIO handleCreateLead =====');
+    console.log('🔥 FUNÇÃO CHAMADA - Criando lead para contato:', contact);
+    console.log('🔥 showLeadModal ANTES:', showLeadModal);
+    console.log('🔥 selectedContactForLead ANTES:', selectedContactForLead);
+    
+    console.log('🔥 EXECUTANDO setSelectedContactForLead...');
+    setSelectedContactForLead(contact);
+    
+    console.log('🔥 EXECUTANDO setShowLeadModal(true)...');
+    setShowLeadModal(true);
+    
+    console.log('🔥 showLeadModal DEPOIS:', true);
+    console.log('🔥 ===== FIM handleCreateLead =====');
+  };
+
+  const handleAddLead = (leadData: Omit<Lead, 'id' | 'tasks'>) => {
+    try {
+      addLead(leadData);
+      toast.success(`Lead "${leadData.name}" criado com sucesso!`);
+      setShowLeadModal(false);
+      setSelectedContactForLead(null);
+    } catch (error) {
+      toast.error('Erro ao criar lead. Tente novamente.');
+      console.error('Erro ao criar lead:', error);
+    }
+  };
+
   // Renderizar estado de não conectado
   if (!status.isReady) {
     return (
@@ -317,6 +355,10 @@ const WhatsApp: React.FC = () => {
   }
 
   // Renderizar layout principal
+  console.log('🔥 RENDERIZANDO MODAL - showLeadModal:', showLeadModal, 'selectedContactForLead:', selectedContactForLead);
+  console.log('🔥 ===== RENDERIZANDO JSX MODAL =====');
+  console.log('🔥 JSX - showLeadModal:', showLeadModal);
+  console.log('🔥 JSX - selectedContactForLead:', selectedContactForLead);
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 flex relative">
@@ -333,6 +375,7 @@ const WhatsApp: React.FC = () => {
               onSync={() => loadContacts()}
               onContactUpdate={handleContactUpdate}
               onContactDelete={handleContactDelete}
+              onCreateLead={handleCreateLead}
             />
           </div>
         )}
@@ -359,6 +402,50 @@ const WhatsApp: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Criação de Lead */}
+      <NewLeadModal
+        isOpen={showLeadModal}
+        onClose={() => {
+          console.log('🔥 FECHANDO MODAL');
+          setShowLeadModal(false);
+          setSelectedContactForLead(null);
+        }}
+        onAdd={handleAddLead}
+        prefillData={selectedContactForLead ? {
+          name: selectedContactForLead.name,
+          phone: selectedContactForLead.phone,
+          email: ''
+        } : undefined}
+      />
+      
+      {/* Modal de Teste Simples - FORA do container com overflow */}
+      {showLeadModal && (
+        <div 
+          className="fixed inset-0 bg-red-500 bg-opacity-75 flex items-center justify-center z-[99999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">MODAL DE TESTE</h2>
+            <p className="text-gray-700 mb-4">
+              Se você está vendo isso, o problema não é de z-index!
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Contato: {selectedContactForLead?.name} - {selectedContactForLead?.phone}
+            </p>
+            <button
+              onClick={() => {
+                console.log('🔥 FECHANDO MODAL DE TESTE');
+                setShowLeadModal(false);
+                setSelectedContactForLead(null);
+              }}
+              className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+            >
+              Fechar Modal de Teste
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

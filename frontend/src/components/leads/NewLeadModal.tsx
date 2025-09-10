@@ -1,15 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import InputMask from 'react-input-mask';
 import { Lead } from '../../components/pipeline/LeadCard';
+import { 
+  sanitizeName, 
+  sanitizePhone, 
+  sanitizeEmail, 
+  sanitizeText, 
+  extractCleanName,
+  isValidEmail,
+  isValidPhone 
+} from '../../utils/whatsappDataSanitizer';
 
 interface NewLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (lead: Omit<Lead, 'id' | 'tasks'>) => void;
+  prefillData?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
 }
 
-const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) => {
+const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd, prefillData }) => {
   const [activeTab, setActiveTab] = useState<'basico' | 'empresa' | 'negocio'>('basico');
   const [formData, setFormData] = useState({
     // Informações Básicas
@@ -37,26 +52,59 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
 
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
+  // Preencher dados quando o modal abrir (com sanitização)
+  useEffect(() => {
+    if (isOpen && prefillData) {
+      setFormData(prev => ({
+        ...prev,
+        name: extractCleanName(prefillData.name || ''),
+        phone: sanitizePhone(prefillData.phone || ''),
+        email: sanitizeEmail(prefillData.email || '')
+      }));
+    }
+  }, [isOpen, prefillData]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação básica - apenas campos obrigatórios
+    // Sanitizar dados antes da validação
+    const sanitizedData = {
+      ...formData,
+      name: sanitizeName(formData.name),
+      phone: sanitizePhone(formData.phone),
+      email: sanitizeEmail(formData.email),
+      linkedin: sanitizeText(formData.linkedin, 200),
+      cargo: sanitizeText(formData.cargo, 100),
+      company: sanitizeText(formData.company, 100),
+      website: sanitizeText(formData.website, 200),
+      setor: sanitizeText(formData.setor, 100),
+      tamanho: sanitizeText(formData.tamanhoEmpresa, 50),
+      fonte: sanitizeText(formData.fonte, 100),
+      notes: sanitizeText(formData.observacoes, 500)
+    };
+    
+    // Validação com funções específicas
     const newErrors: {[key: string]: string} = {};
     const missingFields: string[] = [];
     
-    if (!formData.name.trim()) {
+    if (!sanitizedData.name.trim()) {
       newErrors.name = 'Nome é obrigatório';
       missingFields.push('Nome');
     }
-    if (!formData.phone.trim()) {
+    if (!sanitizedData.phone.trim()) {
       newErrors.phone = 'Telefone é obrigatório';
       missingFields.push('Telefone');
+    } else if (!isValidPhone(sanitizedData.phone)) {
+      newErrors.phone = 'Telefone inválido';
     }
-    if (!formData.priority) {
+    if (sanitizedData.email && !isValidEmail(sanitizedData.email)) {
+      newErrors.email = 'Email inválido';
+    }
+    if (!sanitizedData.priority) {
       newErrors.priority = 'Prioridade é obrigatória';
       missingFields.push('Prioridade');
     }
-    if (!formData.fonte.trim()) {
+    if (!sanitizedData.fonte.trim()) {
       newErrors.fonte = 'Fonte do lead é obrigatória';
       missingFields.push('Fonte do Lead');
     }
@@ -86,23 +134,23 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
     }
 
     onAdd({
-      name: formData.name,
-      company: formData.company,
-      phone: formData.phone,
-      email: formData.email,
-      value: Number(formData.value) || 0,
-      priority: formData.priority,
-      nextContact: formData.nextContact,
+      name: sanitizedData.name,
+      company: sanitizedData.company,
+      phone: sanitizedData.phone,
+      email: sanitizedData.email,
+      value: Number(sanitizedData.value) || 0,
+      priority: sanitizedData.priority,
+      nextContact: sanitizedData.nextContact,
       status: 'prospecto',
       isOverdue: false,
-      source: formData.fonte,
+      source: sanitizedData.fonte,
       // Adicionar todos os campos do modal
-      cargo: formData.cargo,
-      linkedin: formData.linkedin,
-      website: formData.website,
-      setor: formData.setor,
-      tamanhoEmpresa: formData.tamanhoEmpresa,
-      industria: formData.industria,
+      cargo: sanitizedData.cargo,
+      linkedin: sanitizedData.linkedin,
+      website: sanitizedData.website,
+      setor: sanitizedData.setor,
+      tamanhoEmpresa: sanitizedData.tamanho,
+      industria: sanitizedData.setor,
       observacoes: formData.observacoes,
       tags: formData.tags
     });
@@ -176,10 +224,11 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
     { id: 'negocio', label: 'Negócio', icon: '💰' }
   ];
 
-  if (!isOpen) return null;
-
+  if (!isOpen) {
+    return null;
+  }
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -273,9 +322,8 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) =
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Telefone *
                   </label>
-                  <input
-                    type="tel"
-                    required
+                  <InputMask
+                    mask="(99) 99999-9999"
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${

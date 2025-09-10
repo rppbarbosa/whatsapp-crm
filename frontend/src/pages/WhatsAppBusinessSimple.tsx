@@ -3,10 +3,18 @@ import { ConversationList } from '../components/whatsapp/ConversationList';
 import { ChatView } from '../components/whatsapp/ChatView';
 import { useWhatsAppStateSimple } from '../hooks/useWhatsAppStateSimple';
 import QRCodeDisplay from '../components/QRCodeDisplay';
+import NewLeadModal from '../components/leads/NewLeadModal';
+import { useLeads } from '../contexts/LeadContext';
+import { Lead } from '../components/pipeline/LeadCard';
+import { toast } from 'react-hot-toast';
+import { extractCleanName, sanitizePhone } from '../utils/whatsappDataSanitizer';
 
 const WhatsAppBusinessSimple: React.FC = () => {
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [showChat, setShowChat] = useState(false);
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [selectedContactForLead, setSelectedContactForLead] = useState<any>(null);
+  const { addLead } = useLeads();
 
   const {
     status,
@@ -105,6 +113,24 @@ const WhatsAppBusinessSimple: React.FC = () => {
     loadChats();
   };
 
+  // Abrir modal de lead a partir do dropdown da lista de conversas
+  const handleCreateLead = (contact: any) => {
+    setSelectedContactForLead(contact);
+    setShowLeadModal(true);
+  };
+
+  const handleAddLead = (leadData: Omit<Lead, 'id' | 'tasks'>) => {
+    try {
+      addLead(leadData);
+      toast.success(`Lead "${leadData.name}" criado com sucesso!`);
+      setShowLeadModal(false);
+      setSelectedContactForLead(null);
+    } catch (error) {
+      console.error('Erro ao criar lead:', error);
+      toast.error('Erro ao criar lead');
+    }
+  };
+
   // Calcular total de mensagens não lidas
   const totalUnreadCount = convertedContacts.reduce((total, contact) => {
     return total + (contact.unreadCount || 0);
@@ -162,6 +188,7 @@ const WhatsAppBusinessSimple: React.FC = () => {
             loading={loading}
             syncing={loading}
             onSync={handleSync}
+            onCreateLead={handleCreateLead}
           />
         </div>
       ) : (
@@ -184,6 +211,21 @@ const WhatsAppBusinessSimple: React.FC = () => {
           />
         )
       )}
+
+      {/* Modal de criação de Lead (renderizado nesta página para evitar dependências) */}
+      <NewLeadModal
+        isOpen={showLeadModal}
+        onClose={() => {
+          setShowLeadModal(false);
+          setSelectedContactForLead(null);
+        }}
+        onAdd={handleAddLead}
+        prefillData={selectedContactForLead ? {
+          name: extractCleanName(selectedContactForLead.name),
+          phone: sanitizePhone(selectedContactForLead.phone),
+          email: ''
+        } : undefined}
+      />
     </div>
   );
 };

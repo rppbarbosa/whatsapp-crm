@@ -12,7 +12,8 @@ import {
   Bell,
   Pin,
   Trash2,
-  Shield
+  Shield,
+  UserPlus
 } from 'lucide-react';
 
 export interface WhatsAppContact {
@@ -45,6 +46,7 @@ interface ConversationListProps {
   onSync: () => void;
   onContactUpdate?: (contactId: string, updates: Partial<WhatsAppContact>) => void;
   onContactDelete?: (contactId: string) => void;
+  onCreateLead?: (contact: WhatsAppContact) => void;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
@@ -56,7 +58,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   syncing,
   onSync,
   onContactUpdate,
-  onContactDelete
+  onContactDelete,
+  onCreateLead
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -523,6 +526,21 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              console.log('🔥 BOTÃO CRIAR LEAD CLICADO - Contato:', contact);
+                              if (onCreateLead) {
+                                onCreateLead(contact);
+                              }
+                              setOpenDropdown(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-3"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            <span>Criar Lead</span>
+                          </button>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handleArchive(contact.id);
                             }}
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-3"
@@ -759,7 +777,21 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                    <span>{contact.isPinned ? 'Desafixar conversa' : 'Fixar conversa'}</span>
                                  </button>
                                  
-                                                                    <button
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     if (onCreateLead) {
+                                       onCreateLead(contact);
+                                     }
+                                     setOpenDropdown(null);
+                                   }}
+                                   className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-3"
+                                 >
+                                   <UserPlus className="w-4 h-4" />
+                                   <span>Criar Lead</span>
+                                 </button>
+                                 
+                                 <button
                                      onClick={(e) => {
                                        e.stopPropagation();
                                        handleArchive(contact.id);

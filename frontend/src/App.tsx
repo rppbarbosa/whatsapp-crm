@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { TaskProvider } from './contexts/TaskContext';
+import { LeadProvider } from './contexts/LeadContext';
+import { LeadModalProvider } from './contexts/LeadModalContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -10,6 +13,8 @@ import ConfirmEmail from './pages/auth/ConfirmEmail';
 import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
 import PipelineVendas from './pages/PipelineVendas';
+import Tarefas from './pages/Tarefas';
+import Calendario from './pages/Calendario';
 import WhatsAppBusinessSimple from './pages/WhatsAppBusinessSimple';
 import GerenciarInstanciasSimple from './pages/GerenciarInstanciasSimple';
 import Relatorios from './pages/Relatorios';
@@ -21,9 +26,12 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
-          <div className="App">
-            <Routes>
+        <TaskProvider>
+          <LeadProvider>
+            <LeadModalProvider>
+              <Router>
+                <div className="App">
+                  <Routes>
               {/* Rotas de autenticação - não requerem login */}
               <Route path="/login" element={
                 <ProtectedRoute requireAuth={false}>
@@ -74,6 +82,22 @@ function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<PipelineVendas />} />
+              </Route>
+
+              <Route path="/tarefas" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Tarefas />} />
+              </Route>
+
+              <Route path="/calendario" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Calendario />} />
               </Route>
 
               <Route path="/whatsapp" element={
@@ -132,10 +156,13 @@ function App() {
                 },
               }}
             />
-          </div>
-        </Router>
-      </AuthProvider>
-    </ThemeProvider>
+            </div>
+          </Router>
+        </LeadModalProvider>
+      </LeadProvider>
+    </TaskProvider>
+  </AuthProvider>
+</ThemeProvider>
   );
 }
 

@@ -1,0 +1,416 @@
+/* Estilos customizados para o react-big-calendar no modo dark */
+
+/* Aplicar estilos apenas quando a classe dark está presente */
+.dark .rbc-calendar,
+.rbc-calendar.dark {
+  background-color: #1f2937 !important; /* gray-800 */
+  color: #f9fafb !important; /* gray-50 */
+}
+
+/* Cabeçalho do calendário */
+.dark .rbc-header,
+.rbc-calendar.dark .rbc-header {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f9fafb !important; /* gray-50 */
+  border-bottom: 1px solid #4b5563 !important; /* gray-600 */
+  font-weight: 600;
+  padding: 12px 8px;
+}
+
+/* Botões de navegação */
+.dark .rbc-toolbar,
+.rbc-calendar.dark .rbc-toolbar {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f9fafb !important; /* gray-50 */
+  border-bottom: 1px solid #4b5563 !important; /* gray-600 */
+  padding: 12px;
+}
+
+.dark .rbc-toolbar button,
+.rbc-calendar.dark .rbc-toolbar button {
+  background-color: #4b5563 !important; /* gray-600 */
+  color: #f9fafb !important; /* gray-50 */
+  border: 1px solid #6b7280 !important; /* gray-500 */
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.dark .rbc-toolbar button:hover,
+.rbc-calendar.dark .rbc-toolbar button:hover {
+  background-color: #6b7280 !important; /* gray-500 */
+  border-color: #9ca3af !important; /* gray-400 */
+}
+
+.dark .rbc-toolbar button.rbc-active,
+.rbc-calendar.dark .rbc-toolbar button.rbc-active {
+  background-color: #3b82f6 !important; /* blue-500 */
+  border-color: #3b82f6 !important;
+  color: white !important;
+}
+
+/* Células do calendário */
+.dark .rbc-month-view,
+.dark .rbc-time-view,
+.rbc-calendar.dark .rbc-month-view,
+.rbc-calendar.dark .rbc-time-view {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+
+.dark .rbc-date-cell,
+.rbc-calendar.dark .rbc-date-cell {
+  color: #f9fafb !important; /* gray-50 */
+}
+
+.dark .rbc-off-range-bg,
+.rbc-calendar.dark .rbc-off-range-bg {
+  background-color: #111827 !important; /* gray-900 */
+}
+
+.dark .rbc-today,
+.rbc-calendar.dark .rbc-today {
+  background-color: #1e40af !important; /* blue-800 */
+  color: white !important;
+}
+
+.dark .rbc-today .rbc-date-cell,
+.rbc-calendar.dark .rbc-today .rbc-date-cell {
+  color: white !important;
+  font-weight: 700;
+}
+
+/* Células individuais */
+.dark .rbc-day-bg,
+.rbc-calendar.dark .rbc-day-bg {
+  background-color: #1f2937 !important; /* gray-800 */
+  border: 1px solid #374151 !important; /* gray-700 */
+}
+
+.dark .rbc-day-bg:hover,
+.rbc-calendar.dark .rbc-day-bg:hover {
+  background-color: #374151 !important; /* gray-700 */
+}
+
+/* Números dos dias */
+.dark .rbc-date-cell,
+.rbc-calendar.dark .rbc-date-cell {
+  color: #f9fafb !important; /* gray-50 */
+  font-weight: 500;
+}
+
+.dark .rbc-off-range .rbc-date-cell,
+.rbc-calendar.dark .rbc-off-range .rbc-date-cell {
+  color: #6b7280 !important; /* gray-500 */
+}
+
+/* Eventos - estilos base */
+.dark .rbc-event,
+.rbc-calendar.dark .rbc-event {
+  color: white !important;
+  border: none !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dark .rbc-event:hover,
+.rbc-calendar.dark .rbc-event:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  opacity: 0.9;
+}
+
+.dark .rbc-event.rbc-selected,
+.rbc-calendar.dark .rbc-event.rbc-selected {
+  opacity: 0.8;
+  transform: scale(1.02);
+}
+
+/* Eventos por tipo - cores específicas */
+.dark .rbc-event[data-event-type="meeting"],
+.rbc-calendar.dark .rbc-event[data-event-type="meeting"] {
+  background-color: #3b82f6 !important; /* blue-500 */
+}
+
+.dark .rbc-event[data-event-type="call"],
+.rbc-calendar.dark .rbc-event[data-event-type="call"] {
+  background-color: #10b981 !important; /* green-500 */
+}
+
+.dark .rbc-event[data-event-type="task"],
+.rbc-calendar.dark .rbc-event[data-event-type="task"] {
+  background-color: #8b5cf6 !important; /* purple-500 */
+}
+
+.dark .rbc-event[data-event-type="follow_up"],
+.rbc-calendar.dark .rbc-event[data-event-type="follow_up"] {
+  background-color: #f59e0b !important; /* orange-500 */
+}
+
+.dark .rbc-event[data-event-type="other"],
+.rbc-calendar.dark .rbc-event[data-event-type="other"] {
+  background-color: #6b7280 !important; /* gray-500 */
+}
+
+/* Eventos por status - cores específicas */
+.dark .rbc-event[data-event-status="completed"],
+.rbc-calendar.dark .rbc-event[data-event-status="completed"] {
+  background-color: #10b981 !important; /* green-500 */
+}
+
+.dark .rbc-event[data-event-status="cancelled"],
+.rbc-calendar.dark .rbc-event[data-event-status="cancelled"] {
+  background-color: #ef4444 !important; /* red-500 */
+}
+
+.dark .rbc-event[data-event-status="in_progress"],
+.rbc-calendar.dark .rbc-event[data-event-status="in_progress"] {
+  background-color: #3b82f6 !important; /* blue-500 */
+}
+
+.dark .rbc-event[data-event-status="scheduled"],
+.rbc-calendar.dark .rbc-event[data-event-status="scheduled"] {
+  background-color: #6b7280 !important; /* gray-500 */
+}
+
+/* Hover states específicos por tipo */
+.dark .rbc-event[data-event-type="meeting"]:hover,
+.rbc-calendar.dark .rbc-event[data-event-type="meeting"]:hover {
+  background-color: #2563eb !important; /* blue-600 */
+}
+
+.dark .rbc-event[data-event-type="call"]:hover,
+.rbc-calendar.dark .rbc-event[data-event-type="call"]:hover {
+  background-color: #059669 !important; /* green-600 */
+}
+
+.dark .rbc-event[data-event-type="task"]:hover,
+.rbc-calendar.dark .rbc-event[data-event-type="task"]:hover {
+  background-color: #7c3aed !important; /* purple-600 */
+}
+
+.dark .rbc-event[data-event-type="follow_up"]:hover,
+.rbc-calendar.dark .rbc-event[data-event-type="follow_up"]:hover {
+  background-color: #d97706 !important; /* orange-600 */
+}
+
+.dark .rbc-event[data-event-type="other"]:hover,
+.rbc-calendar.dark .rbc-event[data-event-type="other"]:hover {
+  background-color: #4b5563 !important; /* gray-600 */
+}
+
+/* Time view (semana/dia) */
+.dark .rbc-time-view .rbc-header,
+.rbc-calendar.dark .rbc-time-view .rbc-header {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f9fafb !important; /* gray-50 */
+  border-bottom: 1px solid #4b5563 !important; /* gray-600 */
+}
+
+.dark .rbc-time-content,
+.rbc-calendar.dark .rbc-time-content {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+
+.dark .rbc-time-slot,
+.rbc-calendar.dark .rbc-time-slot {
+  color: #9ca3af !important; /* gray-400 */
+  border-top: 1px solid #374151 !important; /* gray-700 */
+}
+
+.dark .rbc-timeslot-group,
+.rbc-calendar.dark .rbc-timeslot-group {
+  border-bottom: 1px solid #374151 !important; /* gray-700 */
+}
+
+.dark .rbc-time-gutter,
+.rbc-calendar.dark .rbc-time-gutter {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f9fafb !important; /* gray-50 */
+}
+
+/* Agenda view (lista) - Cards iguais ao modo light */
+.dark .rbc-agenda-view,
+.rbc-calendar.dark .rbc-agenda-view {
+  background-color: #1f2937 !important; /* gray-800 */
+  color: #f9fafb !important; /* gray-50 */
+}
+
+.dark .rbc-agenda-view table,
+.rbc-calendar.dark .rbc-agenda-view table {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+
+.dark .rbc-agenda-view .rbc-agenda-date-cell,
+.rbc-calendar.dark .rbc-agenda-view .rbc-agenda-date-cell {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f9fafb !important; /* gray-50 */
+  border: 1px solid #4b5563 !important; /* gray-600 */
+}
+
+.dark .rbc-agenda-view .rbc-agenda-time-cell,
+.rbc-calendar.dark .rbc-agenda-view .rbc-agenda-time-cell {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f9fafb !important; /* gray-50 */
+  border: 1px solid #4b5563 !important; /* gray-600 */
+}
+
+.dark .rbc-agenda-view .rbc-agenda-event-cell,
+.rbc-calendar.dark .rbc-agenda-view .rbc-agenda-event-cell {
+  background-color: #1f2937 !important; /* gray-800 */
+  color: #f9fafb !important; /* gray-50 */
+  border: 1px solid #4b5563 !important; /* gray-600 */
+}
+
+/* Cards com cores específicas por tipo - igual ao modo light */
+.dark .rbc-agenda-view .rbc-event[data-event-type="meeting"],
+.rbc-calendar.dark .rbc-agenda-view .rbc-event[data-event-type="meeting"] {
+  background-color: #3b82f6 !important; /* blue-500 */
+  color: white !important;
+}
+
+.dark .rbc-agenda-view .rbc-event[data-event-type="call"],
+.rbc-calendar.dark .rbc-agenda-view .rbc-event[data-event-type="call"] {
+  background-color: #10b981 !important; /* green-500 */
+  color: white !important;
+}
+
+.dark .rbc-agenda-view .rbc-event[data-event-type="task"],
+.rbc-calendar.dark .rbc-agenda-view .rbc-event[data-event-type="task"] {
+  background-color: #8b5cf6 !important; /* purple-500 */
+  color: white !important;
+}
+
+.dark .rbc-agenda-view .rbc-event[data-event-type="follow_up"],
+.rbc-calendar.dark .rbc-agenda-view .rbc-event[data-event-type="follow_up"] {
+  background-color: #f59e0b !important; /* orange-500 */
+  color: white !important;
+}
+
+/* Status específicos */
+.dark .rbc-agenda-view .rbc-event[data-event-status="completed"],
+.rbc-calendar.dark .rbc-agenda-view .rbc-event[data-event-status="completed"] {
+  background-color: #10b981 !important; /* green-500 */
+  color: white !important;
+}
+
+.dark .rbc-agenda-view .rbc-event[data-event-status="cancelled"],
+.rbc-calendar.dark .rbc-agenda-view .rbc-event[data-event-status="cancelled"] {
+  background-color: #ef4444 !important; /* red-500 */
+  color: white !important;
+}
+
+
+/* Scrollbar customizada */
+.dark .rbc-calendar::-webkit-scrollbar,
+.rbc-calendar.dark::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark .rbc-calendar::-webkit-scrollbar-track,
+.rbc-calendar.dark::-webkit-scrollbar-track {
+  background: #374151; /* gray-700 */
+}
+
+.dark .rbc-calendar::-webkit-scrollbar-thumb,
+.rbc-calendar.dark::-webkit-scrollbar-thumb {
+  background: #6b7280; /* gray-500 */
+  border-radius: 4px;
+}
+
+.dark .rbc-calendar::-webkit-scrollbar-thumb:hover,
+.rbc-calendar.dark::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af; /* gray-400 */
+}
+
+/* Melhorar contraste dos textos */
+.dark .rbc-toolbar-label,
+.rbc-calendar.dark .rbc-toolbar-label {
+  color: #f9fafb !important; /* gray-50 */
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.dark .rbc-header,
+.rbc-calendar.dark .rbc-header {
+  color: #f9fafb !important; /* gray-50 */
+  font-weight: 600;
+}
+
+/* Melhorar visibilidade dos dias da semana */
+.dark .rbc-header span,
+.rbc-calendar.dark .rbc-header span {
+  color: #f9fafb !important; /* gray-50 */
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* Melhorar contraste dos números dos dias */
+.dark .rbc-date-cell,
+.rbc-calendar.dark .rbc-date-cell {
+  color: #f9fafb !important; /* gray-50 */
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* Melhorar contraste dos eventos */
+.dark .rbc-event-content,
+.rbc-calendar.dark .rbc-event-content {
+  color: white !important;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Garantir que as cores específicas sejam aplicadas no modo dark */
+.dark .rbc-event[style*="background-color: #3b82f6"],
+.rbc-calendar.dark .rbc-event[style*="background-color: #3b82f6"] {
+  background-color: #3b82f6 !important; /* blue-500 */
+}
+
+.dark .rbc-event[style*="background-color: #10b981"],
+.rbc-calendar.dark .rbc-event[style*="background-color: #10b981"] {
+  background-color: #10b981 !important; /* green-500 */
+}
+
+.dark .rbc-event[style*="background-color: #8b5cf6"],
+.rbc-calendar.dark .rbc-event[style*="background-color: #8b5cf6"] {
+  background-color: #8b5cf6 !important; /* purple-500 */
+}
+
+.dark .rbc-event[style*="background-color: #f59e0b"],
+.rbc-calendar.dark .rbc-event[style*="background-color: #f59e0b"] {
+  background-color: #f59e0b !important; /* orange-500 */
+}
+
+.dark .rbc-event[style*="background-color: #ef4444"],
+.rbc-calendar.dark .rbc-event[style*="background-color: #ef4444"] {
+  background-color: #ef4444 !important; /* red-500 */
+}
+
+.dark .rbc-event[style*="background-color: #6b7280"],
+.rbc-calendar.dark .rbc-event[style*="background-color: #6b7280"] {
+  background-color: #6b7280 !important; /* gray-500 */
+}
+
+/* Forçar cores específicas baseadas nos atributos de dados */
+.dark .rbc-event[data-event-type="meeting"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]),
+.rbc-calendar.dark .rbc-event[data-event-type="meeting"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]) {
+  background-color: #3b82f6 !important; /* blue-500 */
+}
+
+.dark .rbc-event[data-event-type="call"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]),
+.rbc-calendar.dark .rbc-event[data-event-type="call"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]) {
+  background-color: #10b981 !important; /* green-500 */
+}
+
+.dark .rbc-event[data-event-type="task"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]),
+.rbc-calendar.dark .rbc-event[data-event-type="task"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]) {
+  background-color: #8b5cf6 !important; /* purple-500 */
+}
+
+.dark .rbc-event[data-event-type="follow_up"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]),
+.rbc-calendar.dark .rbc-event[data-event-type="follow_up"]:not([data-event-status="completed"]):not([data-event-status="cancelled"]) {
+  background-color: #f59e0b !important; /* orange-500 */
+}

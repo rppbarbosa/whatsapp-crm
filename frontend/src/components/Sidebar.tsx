@@ -10,7 +10,9 @@ import {
   Wrench,
   Menu,
   X,
-  Power
+  Power,
+  CheckSquare,
+  Calendar
 } from 'lucide-react';
 import { ThemeToggle } from './ui/ThemeToggle';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,6 +22,8 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
   { path: '/leads', label: 'Leads', icon: Users },
   { path: '/pipeline-vendas', label: 'Pipeline de Vendas', icon: GitBranch },
+  { path: '/tarefas', label: 'Tarefas', icon: CheckSquare },
+  { path: '/calendario', label: 'Calendário', icon: Calendar },
   { path: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { path: '/gerenciar-instancias', label: 'Gerenciar Instâncias', icon: Wrench },
   { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },

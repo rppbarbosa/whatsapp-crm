@@ -1,252 +1,141 @@
 const express = require('express');
 const router = express.Router();
-const { supabase, supabaseAdmin } = require('../services/supabase.js');
+const { supabase } = require('../services/supabase');
 
-// Middleware de autenticação (simplificado por enquanto)
-const authenticateApiKey = (req, res, next) => {
-  const apiKey = req.headers['apikey'] || req.headers['x-api-key'];
-  console.log('🔑 API Key recebida:', apiKey);
-  console.log('🔑 API Key esperada:', process.env.EVOLUTION_API_KEY);
-  
-  if (!apiKey || apiKey !== process.env.EVOLUTION_API_KEY) {
-    console.log('❌ API Key inválida');
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  console.log('✅ API Key válida');
-  next();
-};
-
-// GET /api/leads - Listar todos os leads
-router.get('/', authenticateApiKey, async (req, res) => {
+// GET /api/leads - Buscar todos os leads
+router.get('/', async (req, res) => {
   try {
-    console.log('📋 Buscando leads...');
-    
-    // Verificar se a tabela existe primeiro
-    const { data: tableExists, error: tableError } = await supabaseAdmin
-      .from('leads')
-      .select('id')
-      .limit(1);
-
-    if (tableError) {
-      console.log('⚠️ Tabela leads não encontrada, retornando dados mock');
-      return res.json([
-        {
-          id: 1,
-          name: 'Lead de Teste',
-          email: 'teste@exemplo.com',
-          phone: '11999999999',
-          status: 'lead-bruto',
-          created_at: new Date().toISOString()
-        }
-      ]);
-    }
-    
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('leads')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('❌ Erro ao buscar leads:', error);
-      return res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
 
-    console.log(`✅ ${data.length} leads encontrados`);
-    res.json(data);
+    res.json({ success: true, data });
   } catch (error) {
-    console.error('❌ Erro geral na busca de leads:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao buscar leads:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// GET /api/leads/:id - Obter lead específico
-router.get('/:id', authenticateApiKey, async (req, res) => {
+// GET /api/leads/:id - Buscar lead por ID
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('leads')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error) {
-      return res.status(404).json({ error: 'Lead não encontrado' });
-    }
+    if (error) throw error;
 
-    res.json(data);
+    res.json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao buscar lead:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST /api/leads - Criar novo lead
-router.post('/', authenticateApiKey, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    console.log('📝 Recebendo dados para criar lead:', req.body);
-    
-    const { 
-      name, 
-      email, 
-      phone, 
-      company, 
-      value, 
-      priority, 
-      nextContact, 
-      source, 
-      status, 
-      notes, 
-      tags,
-      // Novos campos do modal
-      cargo,
-      linkedin,
-      website,
-      setor,
-      tamanhoEmpresa,
-      industria,
-      observacoes
-    } = req.body;
-
-    // Validação básica - apenas campos obrigatórios
-    if (!name) {
-      console.log('❌ Nome não fornecido');
-      return res.status(400).json({ error: 'Nome é obrigatório' });
-    }
-    if (!phone) {
-      console.log('❌ Telefone não fornecido');
-      return res.status(400).json({ error: 'Telefone é obrigatório' });
-    }
-    if (!priority) {
-      console.log('❌ Prioridade não fornecida');
-      return res.status(400).json({ error: 'Prioridade é obrigatória' });
-    }
-    if (!source) {
-      console.log('❌ Fonte não fornecida');
-      return res.status(400).json({ error: 'Fonte do lead é obrigatória' });
-    }
-
-    const leadData = {
-      name,
-      email: email || null,
-      phone,
-      campaign: company || null, // Mapear company para campaign (campo existente)
-      source: source || 'website',
-      status: status || 'lead-bruto',
-      priority: priority || 'medium',
-      notes: notes || observacoes || null,
-      // Novos campos
-      cargo: cargo || null,
-      linkedin: linkedin || null,
-      website: website || null,
-      setor: setor || null,
-      tamanho_empresa: tamanhoEmpresa || null,
-      industria: industria || null,
-      tags: tags || null,
-      valor_estimado: value ? parseFloat(value) : null,
-      proximo_contato: nextContact || null
-    };
-
-    console.log('📊 Dados do lead a serem inseridos (empresa:', company, '):', leadData);
-
-    const { data, error } = await supabaseAdmin
+    const leadData = req.body;
+    const { data, error } = await supabase
       .from('leads')
-      .insert(leadData)
+      .insert([leadData])
       .select()
       .single();
 
-    if (error) {
-      console.error('❌ Erro do Supabase:', error);
-      return res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
 
-    console.log('✅ Lead criado com sucesso:', data);
-    res.status(201).json({
-      success: true,
-      data: data,
-      message: 'Lead criado com sucesso'
-    });
+    res.status(201).json({ success: true, data });
   } catch (error) {
-    console.error('❌ Erro geral:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao criar lead:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // PUT /api/leads/:id - Atualizar lead
-router.put('/:id', authenticateApiKey, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
-
-    const { data, error } = await supabaseAdmin
+    const leadData = req.body;
+    const { data, error } = await supabase
       .from('leads')
-      .update(updateData)
+      .update(leadData)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) {
-      return res.status(404).json({ error: 'Lead não encontrado' });
-    }
+    if (error) throw error;
 
-    res.json(data);
+    res.json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao atualizar lead:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // DELETE /api/leads/:id - Deletar lead
-router.delete('/:id', authenticateApiKey, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('leads')
       .delete()
       .eq('id', id);
 
-    if (error) {
-      return res.status(404).json({ error: 'Lead não encontrado' });
-    }
+    if (error) throw error;
 
-    res.json({ message: 'Lead deletado com sucesso' });
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao deletar lead:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// GET /api/leads/dashboard/stats - Estatísticas do dashboard
-router.get('/dashboard/stats', authenticateApiKey, async (req, res) => {
+// GET /api/leads/stats/dashboard - Estatísticas para dashboard
+router.get('/stats/dashboard', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('leads_dashboard')
-      .select('*');
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// GET /api/leads/by-status/:status - Filtrar leads por status
-router.get('/by-status/:status', authenticateApiKey, async (req, res) => {
-  try {
-    const { status } = req.params;
-    const { data, error } = await supabaseAdmin
+    const { data: leads, error } = await supabase
       .from('leads')
-      .select('*')
-      .eq('status', status)
-      .order('created_at', { ascending: false });
+      .select('status, priority, created_at');
 
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
 
-    res.json(data);
+    // Calcular estatísticas
+    const stats = {
+      total: leads.length,
+      porStatus: {},
+      porPrioridade: {},
+      ultimos7Dias: 0,
+      ultimos30Dias: 0
+    };
+
+    const agora = new Date();
+    const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const trintaDiasAtras = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    leads.forEach(lead => {
+      // Contar por status
+      stats.porStatus[lead.status] = (stats.porStatus[lead.status] || 0) + 1;
+      
+      // Contar por prioridade
+      stats.porPrioridade[lead.priority] = (stats.porPrioridade[lead.priority] || 0) + 1;
+      
+      // Contar por período
+      const dataCriacao = new Date(lead.created_at);
+      if (dataCriacao >= seteDiasAtras) stats.ultimos7Dias++;
+      if (dataCriacao >= trintaDiasAtras) stats.ultimos30Dias++;
+    });
+
+    res.json({ success: true, data: stats });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao buscar estatísticas:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-module.exports = router; 
+module.exports = router;
