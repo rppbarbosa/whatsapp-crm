@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { TaskProvider } from './contexts/TaskContext';
 import { LeadProvider } from './contexts/LeadContext';
 import { LeadModalProvider } from './contexts/LeadModalContext';
+import { UserProjectProvider } from './contexts/UserProjectContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -26,10 +27,11 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <TaskProvider>
-          <LeadProvider>
-            <LeadModalProvider>
-              <Router>
+        <UserProjectProvider>
+          <TaskProvider>
+            <LeadProvider>
+              <LeadModalProvider>
+                <Router>
                 <div className="App">
                   <Routes>
               {/* Rotas de autenticação - não requerem login */}
@@ -161,7 +163,8 @@ function App() {
         </LeadModalProvider>
       </LeadProvider>
     </TaskProvider>
-  </AuthProvider>
+  </UserProjectProvider>
+</AuthProvider>
 </ThemeProvider>
   );
 }

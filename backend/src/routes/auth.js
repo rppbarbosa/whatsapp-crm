@@ -227,30 +227,66 @@ router.post('/register', authenticateApiKey, async (req, res) => {
       });
     }
 
-    // Criar perfil na tabela profiles
+    // Confirmar usuário automaticamente (sem depender de email)
     if (data.user) {
+      const { error: confirmError } = await supabase.auth.admin.updateUserById(data.user.id, {
+        email_confirm: true
+      });
+
+      if (confirmError) {
+        console.error('Erro ao confirmar usuário:', confirmError);
+        // Continuar mesmo com erro de confirmação
+      } else {
+        console.log('✅ Usuário confirmado automaticamente:', email);
+      }
+
+      // Criar perfil na tabela profiles
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
           id: data.user.id,
           email: email,
           full_name: name,
-          role: 'user'
+          role: 'user',
+          is_active: true,
+          created_at: data.user.created_at,
+          updated_at: new Date().toISOString()
         });
 
       if (profileError) {
         console.error('Erro ao criar perfil:', profileError);
+        // Se já existe perfil, atualizar
+        if (profileError.code === '23505') { // duplicate key
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              full_name: name,
+              role: 'user',
+              is_active: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', data.user.id);
+
+          if (updateError) {
+            console.error('Erro ao atualizar perfil:', updateError);
+          } else {
+            console.log('✅ Perfil atualizado:', email);
+          }
+        }
+      } else {
+        console.log('✅ Perfil criado:', email);
       }
     }
 
     res.status(201).json({
       success: true,
-      message: 'Usuário criado com sucesso. Verifique seu email para confirmar a conta.',
+      message: 'Usuário criado com sucesso. Você já pode fazer login!',
       user: {
         id: data.user?.id,
         name: name,
         email: email,
-        createdAt: data.user?.created_at
+        createdAt: data.user?.created_at,
+        emailConfirmed: true
       }
     });
 

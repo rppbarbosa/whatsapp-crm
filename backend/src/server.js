@@ -74,9 +74,13 @@ app.get('/', (req, res) => {
     message: 'WhatsApp CRM API está funcionando!',
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
       whatsapp: '/api/whatsapp',
       customers: '/api/customers',
-      conversations: '/api/conversations'
+      conversations: '/api/conversations',
+      leads: '/api/leads',
+      tasks: '/api/tasks'
       // ai: '/api/ai' // Temporariamente desabilitado
     }
   });
@@ -114,9 +118,11 @@ const eventsRoutes = require('./routes/events');
 const tasksRoutes = require('./routes/tasks');
 const evolutionChannelRoutes = require('./routes/evolutionChannel');
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
 
 // Usar rotas
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes); // Rotas de usuários e projetos
 app.use('/api/whatsapp', whatsappWPPConnectRoutes);
 app.use('/api/whatsapp-optimized', whatsappOptimizedRoutes); // Nova rota otimizada
 app.use('/api/customers', customerRoutes);

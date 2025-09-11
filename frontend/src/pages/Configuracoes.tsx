@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Bell,
@@ -14,9 +14,14 @@ import {
   Trash2,
   Save,
   MessageCircle,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Building,
+  History
 } from 'lucide-react';
 import UserProfile from '../components/UserProfile';
+import { UserManagement, ProjectManagement, AuditHistory } from '../components/admin';
+import { useUserProject } from '../contexts/UserProjectContext';
 
 interface UserSettings {
   name: string;
@@ -43,10 +48,12 @@ interface UserSettings {
 }
 
 const Configuracoes: React.FC = () => {
+  const { currentUser, isLoading } = useUserProject();
+  
   const [settings, setSettings] = useState<UserSettings>({
-    name: 'João Silva',
-    email: 'joao.silva@empresa.com',
-    phone: '+55 11 99999-9999',
+    name: currentUser?.full_name || 'Usuário',
+    email: currentUser?.email || 'usuario@exemplo.com',
+    phone: currentUser?.phone || '+55 11 99999-9999',
     language: 'pt-BR',
     timezone: 'America/Sao_Paulo',
     notifications: {
@@ -72,13 +79,28 @@ const Configuracoes: React.FC = () => {
   // const [showDeleteModal, setShowDeleteModal] = useState(false);
   // const [expandedSections, setExpandedSections] = useState<string[]>(['perfil']);
 
+  // Atualizar configurações quando currentUser mudar
+  useEffect(() => {
+    if (currentUser) {
+      setSettings(prev => ({
+        ...prev,
+        name: currentUser.full_name || 'Usuário',
+        email: currentUser.email || 'usuario@exemplo.com',
+        phone: currentUser.phone || '+55 11 99999-9999'
+      }));
+    }
+  }, [currentUser]);
+
   const tabs = [
     { id: 'perfil', label: 'Perfil', icon: User },
     { id: 'notificacoes', label: 'Notificações', icon: Bell },
     { id: 'privacidade', label: 'Privacidade', icon: Shield },
     { id: 'aparencia', label: 'Aparência', icon: Palette },
     { id: 'integracao', label: 'Integrações', icon: Zap },
-    { id: 'sistema', label: 'Sistema', icon: Monitor }
+    { id: 'sistema', label: 'Sistema', icon: Monitor },
+    { id: 'usuarios', label: 'Usuários', icon: Users },
+    { id: 'projetos', label: 'Projetos', icon: Building },
+    { id: 'historico', label: 'Histórico', icon: History }
   ];
 
   const languages = [
@@ -656,6 +678,27 @@ const Configuracoes: React.FC = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Usuários */}
+          {activeTab === 'usuarios' && (
+            <div className="space-y-6">
+              <UserManagement />
+            </div>
+          )}
+
+          {/* Projetos */}
+          {activeTab === 'projetos' && (
+            <div className="space-y-6">
+              <ProjectManagement />
+            </div>
+          )}
+
+          {/* Histórico */}
+          {activeTab === 'historico' && (
+            <div className="space-y-6">
+              <AuditHistory />
             </div>
           )}
         </div>

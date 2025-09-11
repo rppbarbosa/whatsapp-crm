@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-// import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useUserProject } from '../contexts/UserProjectContext';
+import { userAPI } from '../services/userProjectAPI';
 import { toast } from 'react-hot-toast';
+import PhoneInput from './PhoneInput';
 import { 
   User, 
   Mail, 
@@ -14,30 +16,46 @@ import {
 } from 'lucide-react';
 
 const UserProfile: React.FC = () => {
-  // const { user, updateUser } = useAuth();
-  const user = { id: '1', name: 'Usuário', email: 'usuario@exemplo.com', createdAt: new Date().toISOString() };
-  const updateUser = (data: any) => console.log('Update user:', data);
+  const { currentUser, isLoading, loadCurrentUser } = useUserProject();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editData, setEditData] = useState({
-    name: user?.name || '',
-    email: user?.email || ''
+    name: '',
+    email: '',
+    phone: ''
   });
 
+  // Atualizar dados de edição quando currentUser mudar
+  useEffect(() => {
+    if (currentUser) {
+      setEditData({
+        name: currentUser.full_name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || ''
+      });
+    }
+  }, [currentUser]);
+
   const handleEdit = () => {
-    setEditData({
-      name: user?.name || '',
-      email: user?.email || ''
-    });
+    if (currentUser) {
+      setEditData({
+        name: currentUser.full_name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || ''
+      });
+    }
     setIsEditing(true);
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    setEditData({
-      name: user?.name || '',
-      email: user?.email || ''
-    });
+    if (currentUser) {
+      setEditData({
+        name: currentUser.full_name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || ''
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -50,15 +68,21 @@ const UserProfile: React.FC = () => {
       setIsSaving(true);
       toast.loading('Salvando alterações...');
       
-      // TODO: Implementar chamada real para API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Preparar dados para atualização
+      const updateData = {
+        full_name: editData.name.trim(),
+        phone: editData.phone || undefined
+      };
+
+      // Chamar API para atualizar perfil
+      const updatedUser = await userAPI.updateProfile(updateData);
       
       toast.dismiss();
       toast.success('Perfil atualizado com sucesso!');
       setIsEditing(false);
       
-      // Atualizar dados do usuário
-      await updateUser(editData);
+      // Recarregar dados do usuário no contexto
+      await loadCurrentUser();
       
     } catch (error) {
       toast.dismiss();
@@ -74,11 +98,22 @@ const UserProfile: React.FC = () => {
     setEditData(prev => ({ ...prev, [name]: value }));
   };
 
-  if (!user) {
+  // Mostrar loading se estiver carregando
+  if (isLoading) {
     return (
-      <div className="text-center py-8">
-        <Loader2 className="animate-spin h-8 w-8 text-gray-400 mx-auto" />
-        <p className="text-gray-500 mt-2">Carregando perfil...</p>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando perfil...</span>
+      </div>
+    );
+  }
+
+  // Mostrar mensagem se não houver usuário
+  if (!currentUser) {
+    return (
+      <div className="text-center p-8">
+        <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-600">Nenhum usuário encontrado</p>
       </div>
     );
   }
@@ -151,7 +186,7 @@ const UserProfile: React.FC = () => {
           ) : (
             <div className="flex items-center space-x-3 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <User className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-              <span className="text-gray-900 dark:text-white">{user.name}</span>
+              <span className="text-gray-900 dark:text-white">{currentUser.full_name}</span>
             </div>
           )}
         </div>
@@ -173,7 +208,7 @@ const UserProfile: React.FC = () => {
           ) : (
             <div className="flex items-center space-x-3 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <Mail className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-              <span className="text-gray-900 dark:text-white">{user.email}</span>
+              <span className="text-gray-900 dark:text-white">{currentUser.email}</span>
             </div>
           )}
         </div>
@@ -186,7 +221,7 @@ const UserProfile: React.FC = () => {
           <div className="flex items-center space-x-3 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <Calendar className="h-5 w-5 text-gray-400 dark:text-gray-500" />
             <span className="text-gray-900 dark:text-white">
-              {new Date(user.createdAt).toLocaleDateString('pt-BR', {
+              {new Date(currentUser.created_at).toLocaleDateString('pt-BR', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
@@ -203,9 +238,34 @@ const UserProfile: React.FC = () => {
           <div className="flex items-center space-x-3 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <Shield className="h-5 w-5 text-gray-400 dark:text-gray-500" />
             <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
-              Ativa
+              {currentUser.is_active ? 'Ativa' : 'Inativa'}
             </span>
           </div>
+        </div>
+
+        {/* Telefone */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Telefone
+          </label>
+          {isEditing ? (
+            <PhoneInput
+              value={editData.phone}
+              onChange={(value) => setEditData(prev => ({ ...prev, phone: value }))}
+              placeholder="+55 11 99999-9999"
+              className="block w-full"
+            />
+          ) : (
+            <div className="flex items-center space-x-3 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <Smartphone className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+              <span className="text-gray-900 dark:text-white">
+                {currentUser.phone ? 
+                  currentUser.phone.replace(/(\d{2})(\d{2})(\d{4,5})(\d{4})/, '+$1 $2 $3-$4') : 
+                  'Não informado'
+                }
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ID do usuário */}
@@ -215,7 +275,7 @@ const UserProfile: React.FC = () => {
           </label>
           <div className="flex items-center space-x-3 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <Smartphone className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-            <span className="text-gray-900 dark:text-white font-mono text-sm">{user.id}</span>
+            <span className="text-gray-900 dark:text-white font-mono text-sm">{currentUser.id}</span>
           </div>
         </div>
       </div>
