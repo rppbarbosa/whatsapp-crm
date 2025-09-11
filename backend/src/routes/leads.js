@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../services/supabase');
+const { supabaseAdmin } = require('../services/supabase');
 
 // GET /api/leads - Buscar todos os leads
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leads')
       .select('*')
       .order('created_at', { ascending: false });
@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leads')
       .select('*')
       .eq('id', id)
@@ -42,7 +42,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const leadData = req.body;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leads')
       .insert([leadData])
       .select()
@@ -62,7 +62,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const leadData = req.body;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leads')
       .update(leadData)
       .eq('id', id)
@@ -82,7 +82,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('leads')
       .delete()
       .eq('id', id);
@@ -99,7 +99,7 @@ router.delete('/:id', async (req, res) => {
 // GET /api/leads/stats/dashboard - Estatísticas para dashboard
 router.get('/stats/dashboard', async (req, res) => {
   try {
-    const { data: leads, error } = await supabase
+    const { data: leads, error } = await supabaseAdmin
       .from('leads')
       .select('status, priority, created_at');
 

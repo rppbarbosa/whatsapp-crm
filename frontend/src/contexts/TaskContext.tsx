@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Task } from '../components/tasks/TaskCard';
+import { tasksService, TaskDTO } from '../services/tasksService';
 
 interface TaskContextType {
   tasks: Task[];
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTask: (taskId: string, updates: Partial<Task>) => void;
-  deleteTask: (taskId: string) => void;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Task>;
+  updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
   getTasksByLead: (leadId: string) => Task[];
   getTasksByStatus: (status: Task['status']) => Task[];
   getTasksByAssignee: (assigneeId: string) => Task[];
@@ -28,49 +29,56 @@ interface TaskProviderProps {
 export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Carregar tarefas do localStorage na inicialização
+  // Carregar tarefas da API na inicialização
   useEffect(() => {
-    const savedTasks = localStorage.getItem('whatsapp-crm-tasks');
-    if (savedTasks) {
+    (async () => {
       try {
-        const parsedTasks = JSON.parse(savedTasks).map((task: any) => ({
-          ...task,
-          dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-          createdAt: new Date(task.createdAt),
-          updatedAt: new Date(task.updatedAt),
-        }));
-        setTasks(parsedTasks);
+        const apiTasks = await tasksService.getTasks();
+        const mapped: Task[] = apiTasks.map(mapDtoToTask);
+        setTasks(mapped);
       } catch (error) {
-        console.error('Erro ao carregar tarefas do localStorage:', error);
+        console.error('Erro ao carregar tarefas da API:', error);
       }
-    }
+    })();
   }, []);
 
-  // Salvar tarefas no localStorage sempre que houver mudanças
-  useEffect(() => {
-    localStorage.setItem('whatsapp-crm-tasks', JSON.stringify(tasks));
-  }, [tasks]);
-
-  const addTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newTask: Task = {
-      ...taskData,
-      id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  const addTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const payload: Omit<TaskDTO, 'id' | 'createdAt' | 'updatedAt'> = {
+      title: taskData.title,
+      description: taskData.description,
+      status: taskData.status,
+      priority: taskData.priority,
+      assignee: taskData.assignee ? { id: taskData.assignee.id, name: taskData.assignee.name, avatar: taskData.assignee.avatar } : undefined,
+      dueDate: taskData.dueDate,
+      tags: taskData.tags,
+      leadId: taskData.leadId,
+      leadName: taskData.leadName,
     };
-    setTasks(prev => [...prev, newTask]);
+    const created = await tasksService.createTask(payload);
+    const newTask = mapDtoToTask(created);
+    setTasks(prev => [newTask, ...prev]);
     return newTask;
   };
 
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId 
-        ? { ...task, ...updates, updatedAt: new Date() }
-        : task
-    ));
+  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+    const payload: Partial<TaskDTO> = {
+      title: updates.title,
+      description: updates.description,
+      status: updates.status,
+      priority: updates.priority,
+      assignee: updates.assignee ? { id: updates.assignee.id, name: updates.assignee.name, avatar: updates.assignee.avatar } : undefined,
+      dueDate: updates.dueDate,
+      tags: updates.tags,
+      leadId: updates.leadId,
+      leadName: updates.leadName,
+    };
+    const updated = await tasksService.updateTask(taskId, payload);
+    const mapped = mapDtoToTask(updated);
+    setTasks(prev => prev.map(t => (t.id === taskId ? mapped : t)));
   };
 
-  const deleteTask = (taskId: string) => {
+  const deleteTask = async (taskId: string) => {
+    await tasksService.deleteTask(taskId);
     setTasks(prev => prev.filter(task => task.id !== taskId));
   };
 
@@ -102,3 +110,20 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     </TaskContext.Provider>
   );
 };
+
+function mapDtoToTask(dto: TaskDTO): Task {
+  return {
+    id: dto.id,
+    title: dto.title,
+    description: dto.description,
+    status: dto.status,
+    priority: dto.priority,
+    assignee: dto.assignee ? { id: dto.assignee.id, name: dto.assignee.name, avatar: dto.assignee.avatar } : undefined,
+    dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+    createdAt: new Date(dto.createdAt),
+    updatedAt: new Date(dto.updatedAt),
+    tags: dto.tags,
+    leadId: dto.leadId,
+    leadName: dto.leadName,
+  };
+}

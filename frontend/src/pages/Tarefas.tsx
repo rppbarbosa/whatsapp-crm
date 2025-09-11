@@ -125,7 +125,7 @@ const Tarefas: React.FC = () => {
     setActiveTask(task || null);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     
     if (!over) return;
@@ -136,7 +136,7 @@ const Tarefas: React.FC = () => {
     const newStatus = over.id as string;
     
     if (activeTask.status !== newStatus) {
-      updateTask(active.id as string, { status: newStatus as Task['status'] });
+      await updateTask(active.id as string, { status: newStatus as Task['status'] });
     }
 
     setActiveTask(null);
@@ -152,16 +152,16 @@ const Tarefas: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    addTask(taskData);
+  const handleSaveTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    await addTask(taskData);
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
-    updateTask(updatedTask.id, updatedTask);
+  const handleUpdateTask = async (updatedTask: Task) => {
+    await updateTask(updatedTask.id, updatedTask);
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    deleteTask(taskId);
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteTask(taskId);
   };
 
   const getStats = () => {

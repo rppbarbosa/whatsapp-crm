@@ -111,6 +111,7 @@ const customerRoutes = require('./routes/customers');
 // const aiRoutes = require('./routes/ai'); // Temporariamente desabilitado
 const leadsRoutes = require('./routes/leads');
 const eventsRoutes = require('./routes/events');
+const tasksRoutes = require('./routes/tasks');
 const evolutionChannelRoutes = require('./routes/evolutionChannel');
 const authRoutes = require('./routes/auth');
 
@@ -123,6 +124,7 @@ app.use('/api/customers', customerRoutes);
 // Rotas com e sem o prefixo /api para compatibilidade retroativa
 app.use(['/api/leads', '/leads'], leadsRoutes);
 app.use(['/api/events', '/events'], eventsRoutes);
+app.use(['/api/tasks', '/tasks'], tasksRoutes);
 app.use('/api/evolution-channel', evolutionChannelRoutes);
         app.use('/webhook', evolutionChannelRoutes); // Webhook público para Evolution Channel (conforme documentação oficial)
 

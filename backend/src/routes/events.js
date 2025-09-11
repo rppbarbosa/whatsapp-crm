@@ -1,11 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../services/supabase');
+const { supabaseAdmin } = require('../services/supabase');
+
+function mapEventStatusToTaskStatus(eventStatus, completedAt) {
+  if (eventStatus === 'in_progress') return 'in_progress';
+  if (eventStatus === 'completed') return 'completed';
+  if (eventStatus === 'cancelled') return 'cancelled';
+  if (eventStatus === 'scheduled') return 'pending';
+  return completedAt ? 'completed' : 'pending';
+}
 
 // GET /api/events - Buscar todos os eventos
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('pipeline_activities')
       .select(`
         *,
@@ -20,9 +28,9 @@ router.get('/', async (req, res) => {
       .order('scheduled_at', { ascending: true });
 
     if (error) {
-      // Fallback: se a tabela não existir ou houver erro de esquema, retornar lista vazia para não quebrar o frontend
+      // Fallback apenas quando a tabela realmente não existe
       const msg = (error.message || '').toLowerCase();
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('table')) {
+      if (msg.includes('does not exist')) {
         return res.json({ success: true, data: [] });
       }
       throw error;
@@ -32,20 +40,20 @@ router.get('/', async (req, res) => {
     const events = data.map(activity => ({
       id: activity.id,
       title: activity.title,
-      description: activity.description,
+      description: activity.description || undefined,
       type: activity.activity_type,
-      priority: 'medium', // Default, pode ser expandido
-      status: activity.completed_at ? 'completed' : 'scheduled',
-      start: new Date(activity.scheduled_at),
-      end: new Date(new Date(activity.scheduled_at).getTime() + 60 * 60 * 1000), // +1 hora
-      isAllDay: false,
-      leadId: activity.lead_id,
+      priority: activity.priority || 'medium',
+      status: activity.status || (activity.completed_at ? 'completed' : 'scheduled'),
+      start: activity.scheduled_at ? new Date(activity.scheduled_at) : new Date(),
+      end: activity.end_at ? new Date(activity.end_at) : new Date(new Date(activity.scheduled_at).getTime() + 60 * 60 * 1000),
+      isAllDay: !!activity.is_all_day,
+      leadId: activity.lead_id || undefined,
       leadName: activity.leads?.name,
       leadPhone: activity.leads?.phone,
       leadEmail: activity.leads?.email,
-      location: '',
-      reminder: { minutes: 15, sent: false },
-      tags: []
+      location: activity.location || '',
+      reminder: { minutes: activity.reminder_minutes ?? 15, sent: !!activity.reminder_sent },
+      tags: activity.tags || []
     }));
 
     res.json({ success: true, data: events });
@@ -59,7 +67,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('pipeline_activities')
       .select(`
         *,
@@ -76,7 +84,7 @@ router.get('/:id', async (req, res) => {
 
     if (error) {
       const msg = (error.message || '').toLowerCase();
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('table')) {
+      if (msg.includes('does not exist')) {
         return res.status(404).json({ success: false, error: 'Evento não encontrado' });
       }
       throw error;
@@ -85,21 +93,48 @@ router.get('/:id', async (req, res) => {
     const event = {
       id: data.id,
       title: data.title,
-      description: data.description,
+      description: data.description || undefined,
       type: data.activity_type,
-      priority: 'medium',
-      status: data.completed_at ? 'completed' : 'scheduled',
-      start: new Date(data.scheduled_at),
-      end: new Date(new Date(data.scheduled_at).getTime() + 60 * 60 * 1000),
-      isAllDay: false,
-      leadId: data.lead_id,
+      priority: data.priority || 'medium',
+      status: data.status || (data.completed_at ? 'completed' : 'scheduled'),
+      start: data.scheduled_at ? new Date(data.scheduled_at) : new Date(),
+      end: data.end_at ? new Date(data.end_at) : new Date(new Date(data.scheduled_at).getTime() + 60 * 60 * 1000),
+      isAllDay: !!data.is_all_day,
+      leadId: data.lead_id || undefined,
       leadName: data.leads?.name,
       leadPhone: data.leads?.phone,
       leadEmail: data.leads?.email,
-      location: '',
-      reminder: { minutes: 15, sent: false },
-      tags: []
+      location: data.location || '',
+      reminder: { minutes: data.reminder_minutes ?? 15, sent: !!data.reminder_sent },
+      tags: data.tags || []
     };
+
+    // Sincronizar com tasks quando activity_type = 'task'
+    try {
+      if (data.activity_type === 'task') {
+        const taskStatus = mapEventStatusToTaskStatus(data.status, data.completed_at);
+        const dueDateSource = data.end_at || data.scheduled_at;
+        await supabaseAdmin
+          .from('tasks')
+          .upsert({
+            activity_id: data.id,
+            lead_id: data.lead_id || null,
+            title: data.title,
+            description: data.description || null,
+            status: taskStatus,
+            priority: data.priority || 'medium',
+            due_date: dueDateSource ? new Date(dueDateSource) : null,
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            updated_at: new Date()
+          }, { onConflict: 'activity_id' })
+          .select()
+          .single();
+      } else {
+        await supabaseAdmin.from('tasks').delete().eq('activity_id', data.id);
+      }
+    } catch (syncErr) {
+      console.warn('Aviso: falha ao sincronizar task com evento (update):', syncErr.message);
+    }
 
     res.json({ success: true, data: event });
   } catch (error) {
@@ -118,12 +153,20 @@ router.post('/', async (req, res) => {
       lead_id: eventData.leadId,
       activity_type: eventData.type,
       title: eventData.title,
-      description: eventData.description,
+      description: eventData.description || null,
       scheduled_at: eventData.start,
-      completed_at: eventData.status === 'completed' ? eventData.start : null
+      end_at: eventData.end || null,
+      is_all_day: !!eventData.isAllDay,
+      location: eventData.location || null,
+      priority: eventData.priority || 'medium',
+      status: eventData.status || 'scheduled',
+      reminder_minutes: eventData.reminder?.minutes ?? 15,
+      reminder_sent: eventData.reminder?.sent ?? false,
+      tags: Array.isArray(eventData.tags) ? eventData.tags : [],
+      completed_at: eventData.status === 'completed' ? (eventData.end || eventData.start) : null
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('pipeline_activities')
       .insert([activityData])
       .select(`
@@ -140,7 +183,7 @@ router.post('/', async (req, res) => {
 
     if (error) {
       const msg = (error.message || '').toLowerCase();
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('table')) {
+      if (msg.includes('does not exist')) {
         return res.status(201).json({ success: true, data: {
           id: `evt_${Date.now()}`,
           title: activityData.title,
@@ -166,21 +209,48 @@ router.post('/', async (req, res) => {
     const event = {
       id: data.id,
       title: data.title,
-      description: data.description,
+      description: data.description || undefined,
       type: data.activity_type,
-      priority: 'medium',
-      status: data.completed_at ? 'completed' : 'scheduled',
-      start: new Date(data.scheduled_at),
-      end: new Date(new Date(data.scheduled_at).getTime() + 60 * 60 * 1000),
-      isAllDay: false,
-      leadId: data.lead_id,
+      priority: data.priority || 'medium',
+      status: data.status || (data.completed_at ? 'completed' : 'scheduled'),
+      start: data.scheduled_at ? new Date(data.scheduled_at) : new Date(),
+      end: data.end_at ? new Date(data.end_at) : new Date(new Date(data.scheduled_at).getTime() + 60 * 60 * 1000),
+      isAllDay: !!data.is_all_day,
+      leadId: data.lead_id || undefined,
       leadName: data.leads?.name,
       leadPhone: data.leads?.phone,
       leadEmail: data.leads?.email,
-      location: '',
-      reminder: { minutes: 15, sent: false },
-      tags: []
+      location: data.location || '',
+      reminder: { minutes: data.reminder_minutes ?? 15, sent: !!data.reminder_sent },
+      tags: data.tags || []
     };
+
+    // Sincronizar com tasks quando activity_type = 'task'
+    try {
+      if (data.activity_type === 'task') {
+        const taskStatus = mapEventStatusToTaskStatus(data.status, data.completed_at);
+        const dueDateSource = data.end_at || data.scheduled_at;
+        await supabaseAdmin
+          .from('tasks')
+          .upsert({
+            activity_id: data.id,
+            lead_id: data.lead_id || null,
+            title: data.title,
+            description: data.description || null,
+            status: taskStatus,
+            priority: data.priority || 'medium',
+            due_date: dueDateSource ? new Date(dueDateSource) : null,
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            updated_at: new Date()
+          }, { onConflict: 'activity_id' })
+          .select()
+          .single();
+      } else {
+        await supabaseAdmin.from('tasks').delete().eq('activity_id', data.id);
+      }
+    } catch (syncErr) {
+      console.warn('Aviso: falha ao sincronizar task com evento (create):', syncErr.message);
+    }
 
     res.status(201).json({ success: true, data: event });
   } catch (error) {
@@ -201,10 +271,18 @@ router.put('/:id', async (req, res) => {
       title: eventData.title,
       description: eventData.description,
       scheduled_at: eventData.start,
-      completed_at: eventData.status === 'completed' ? eventData.start : null
+      end_at: eventData.end,
+      is_all_day: eventData.isAllDay,
+      location: eventData.location,
+      priority: eventData.priority,
+      status: eventData.status,
+      reminder_minutes: eventData.reminder?.minutes,
+      reminder_sent: eventData.reminder?.sent,
+      tags: eventData.tags,
+      completed_at: eventData.status === 'completed' ? (eventData.end || eventData.start) : null
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('pipeline_activities')
       .update(activityData)
       .eq('id', id)
@@ -222,7 +300,7 @@ router.put('/:id', async (req, res) => {
 
     if (error) {
       const msg = (error.message || '').toLowerCase();
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('table')) {
+      if (msg.includes('does not exist')) {
         return res.json({ success: true, data: {
           id,
           title: activityData.title,
@@ -248,20 +326,20 @@ router.put('/:id', async (req, res) => {
     const event = {
       id: data.id,
       title: data.title,
-      description: data.description,
+      description: data.description || undefined,
       type: data.activity_type,
-      priority: 'medium',
-      status: data.completed_at ? 'completed' : 'scheduled',
-      start: new Date(data.scheduled_at),
-      end: new Date(new Date(data.scheduled_at).getTime() + 60 * 60 * 1000),
-      isAllDay: false,
-      leadId: data.lead_id,
+      priority: data.priority || 'medium',
+      status: data.status || (data.completed_at ? 'completed' : 'scheduled'),
+      start: data.scheduled_at ? new Date(data.scheduled_at) : new Date(),
+      end: data.end_at ? new Date(data.end_at) : new Date(new Date(data.scheduled_at).getTime() + 60 * 60 * 1000),
+      isAllDay: !!data.is_all_day,
+      leadId: data.lead_id || undefined,
       leadName: data.leads?.name,
       leadPhone: data.leads?.phone,
       leadEmail: data.leads?.email,
-      location: '',
-      reminder: { minutes: 15, sent: false },
-      tags: []
+      location: data.location || '',
+      reminder: { minutes: data.reminder_minutes ?? 15, sent: !!data.reminder_sent },
+      tags: data.tags || []
     };
 
     res.json({ success: true, data: event });
@@ -275,17 +353,23 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('pipeline_activities')
       .delete()
       .eq('id', id);
 
     if (error) {
       const msg = (error.message || '').toLowerCase();
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('table')) {
+      if (msg.includes('does not exist')) {
         return res.json({ success: true });
       }
       throw error;
+    }
+
+    try {
+      await supabaseAdmin.from('tasks').delete().eq('activity_id', id);
+    } catch (syncErr) {
+      console.warn('Aviso: falha ao remover task vinculada:', syncErr.message);
     }
 
     res.json({ success: true });
@@ -298,13 +382,13 @@ router.delete('/:id', async (req, res) => {
 // GET /api/events/stats/dashboard - Estatísticas para dashboard
 router.get('/stats/dashboard', async (req, res) => {
   try {
-    const { data: activities, error } = await supabase
+    const { data: activities, error } = await supabaseAdmin
       .from('pipeline_activities')
       .select('activity_type, scheduled_at, completed_at');
 
     if (error) {
       const msg = (error.message || '').toLowerCase();
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('table')) {
+      if (msg.includes('does not exist')) {
         return res.json({ success: true, data: { total: 0, completed: 0, scheduled: 0, today: 0 } });
       }
       throw error;

@@ -14,7 +14,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Cliente Supabase para operações administrativas (service role)
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Fallback seguro: se SERVICE_ROLE não estiver definido, usa anon (apenas para evitar crash)
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
 
 console.log('✅ Supabase configurado com sucesso');
 

@@ -225,18 +225,24 @@ const Calendario: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleSaveEvent = (eventData: Omit<CalendarEventType, 'id'>) => {
-    const newEvent: CalendarEventType = {
-      ...eventData,
-      id: Date.now().toString(),
-    };
-    setEvents(prev => [...prev, newEvent]);
+  const handleSaveEvent = async (eventData: Omit<CalendarEventType, 'id'>) => {
+    try {
+      const created = await eventsService.createEvent(eventData as any);
+      setEvents(prev => [...prev, created as any]);
+    } catch (err) {
+      console.error('Erro ao criar evento:', err);
+      setError('Erro ao criar evento');
+    }
   };
 
-  const handleUpdateEvent = (updatedEvent: CalendarEventType) => {
-    setEvents(prev => prev.map(event => 
-      event.id === updatedEvent.id ? updatedEvent : event
-    ));
+  const handleUpdateEvent = async (updatedEvent: CalendarEventType) => {
+    try {
+      const saved = await eventsService.updateEvent(updatedEvent.id, updatedEvent as any);
+      setEvents(prev => prev.map(event => (event.id === saved.id ? (saved as any) : event)));
+    } catch (err) {
+      console.error('Erro ao atualizar evento:', err);
+      setError('Erro ao atualizar evento');
+    }
   };
 
 
